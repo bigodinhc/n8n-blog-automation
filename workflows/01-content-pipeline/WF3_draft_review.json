@@ -1,0 +1,481 @@
+{
+  "name": "[BLOG] 3 DRAFT REVIEW",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1056,
+        -288
+      ],
+      "id": "ea93e211-202d-419c-9af4-d771eb6e3112",
+      "name": "TRIGGER"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "vw_blog_drafts",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "draft"
+            },
+            {
+              "keyName": "original_date",
+              "condition": "lt",
+              "keyValue": "={{ $json.dateEnd }}"
+            },
+            {
+              "keyName": "original_date",
+              "condition": "gt",
+              "keyValue": "={{ $json.dateStart }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        -288
+      ],
+      "id": "57eea88f-8ca4-4684-9b99-b3797c3bb4d0",
+      "name": "BUSCAR DRAFTS",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Preparar Post HTML + Payload Telegram (sendDocument)\n// VERSÃO 2.0 - Preview Melhorado com formatação visual aprimorada\n\nconst draft = $json;\n\n// Variáveis de controle da sessão\nconst currentNumber = draft.review_order || 1;\nconst totalPosts = draft.total_in_session || 1;\n\n// Define o chat_id\nconst chatId = \"8375309778\";\n\n// Configuração de tier com emojis\nlet tierEmoji, tierLabel, tierColor;\nswitch(draft.tier) {\n  case 'TIER_1':\n    tierEmoji = '🔴';\n    tierLabel = 'URGENTE';\n    tierColor = '#dc3545';\n    break;\n  case 'TIER_2':\n    tierEmoji = '🟡';\n    tierLabel = 'NORMAL';\n    tierColor = '#ffc107';\n    break;\n  case 'TIER_3':\n    tierEmoji = '🟢';\n    tierLabel = 'BAIXA';\n    tierColor = '#28a745';\n    break;\n  default:\n    tierEmoji = '⚪';\n    tierLabel = 'N/A';\n    tierColor = '#6c757d';\n}\n\n// Formata a data\nconst createdDate = draft.created_at \n  ? new Date(draft.created_at).toLocaleDateString('pt-BR', {\n      day: '2-digit',\n      month: '2-digit', \n      year: 'numeric',\n      hour: '2-digit',\n      minute: '2-digit'\n    })\n  : 'Data não disponível';\n\nconst originalDate = draft.original_date\n  ? new Date(draft.original_date).toLocaleDateString('pt-BR')\n  : null;\n\n// Formata categorias e tags\nconst categories = Array.isArray(draft.categories) \n  ? draft.categories.join(', ') \n  : (draft.categories || 'Geral');\n\nconst tags = Array.isArray(draft.tags) \n  ? draft.tags.slice(0, 5).join(', ')\n  : (draft.tags || 'Sem tags');\n\n// Conteúdo do post\nconst postContent = draft.content_html || draft.content_markdown || 'Conteúdo não disponível';\n\n// Extrai preview do texto (primeiros 300 caracteres sem HTML)\nconst plainText = postContent.replace(/<[^>]*>/g, '').replace(/\\n+/g, ' ').trim();\nconst previewText = plainText.length > 300 \n  ? plainText.substring(0, 300) + '...'\n  : plainText;\n\n// Calcula tempo de leitura se não existir\nconst wordCount = draft.word_count || plainText.split(/\\s+/).length;\nconst readingTime = draft.reading_time_minutes || Math.ceil(wordCount / 200);\n\n// Fonte original formatada\nconst sourceInfo = draft.original_source || 'Fonte não informada';\n\n// ============================================\n// CAPTION MELHORADO - VISUAL E INFORMATIVO\n// ============================================\nconst caption = `📰 *ARTIGO PARA REVISÃO*\n━━━━━━━━━━━━━━━━━━━━━\n\n📌 *Título:*\n${draft.title || 'Sem título'}\n\n📊 *Metadados:*\n├─ Prioridade: ${tierEmoji} ${tierLabel}\n├─ Categoria: ${categories}\n├─ Tags: ${tags}\n├─ Palavras: ${wordCount}\n└─ Leitura: ${readingTime} min\n\n📝 *Preview:*\n\"${previewText}\"\n\n🔗 *Fonte:* ${sourceInfo}\n📅 *Data:* ${originalDate || createdDate}\n\n━━━━━━━━━━━━━━━━━━━━━\n📄 _Abra o HTML anexo para ver o artigo completo_\n🔢 Post ${currentNumber} de ${totalPosts}`;\n\n// ============================================\n// BOTÕES INLINE MELHORADOS\n// ============================================\nconst inlineKeyboard = [\n  [\n    { text: '✅ Aprovar', callback_data: `approve_${draft.id}` },\n    { text: '📝 Revisar', callback_data: `edit_${draft.id}` },\n    { text: '❌ Rejeitar', callback_data: `reject_${draft.id}` }\n  ]\n];\n\n// ============================================\n// TEMPLATE HTML\n// ============================================\nconst htmlContent = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${draft.title || 'Post para Revisão'}</title>\n  <style>\n    * { box-sizing: border-box; margin: 0; padding: 0; }\n    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 16px; }\n    .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }\n    .header { background: ${tierColor}; color: white; padding: 20px; }\n    .header-badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 14px; margin-bottom: 12px; }\n    .header h1 { font-size: 22px; font-weight: 600; line-height: 1.3; }\n    .meta-section { background: #f8f9fa; padding: 16px 20px; border-bottom: 1px solid #e9ecef; }\n    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }\n    .meta-item { font-size: 14px; }\n    .meta-label { color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }\n    .meta-value { font-weight: 500; color: #333; }\n    .categories { padding: 12px 20px; background: #fff; border-bottom: 1px solid #e9ecef; }\n    .category-tag { display: inline-block; background: #e9ecef; color: #495057; padding: 4px 10px; border-radius: 4px; font-size: 13px; margin: 2px 4px 2px 0; }\n    .excerpt { padding: 20px; background: #fffbeb; border-left: 4px solid #f59e0b; margin: 20px; border-radius: 0 8px 8px 0; }\n    .excerpt-label { font-size: 12px; text-transform: uppercase; color: #92400e; margin-bottom: 8px; font-weight: 600; }\n    .excerpt-text { color: #78350f; font-style: italic; }\n    .content { padding: 24px 20px; }\n    .content-label { font-size: 12px; text-transform: uppercase; color: #666; margin-bottom: 16px; font-weight: 600; letter-spacing: 0.5px; }\n    .content-body { font-size: 16px; line-height: 1.8; }\n    .content-body h2 { font-size: 20px; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; margin-top: 24px; margin-bottom: 12px; }\n    .content-body h3 { font-size: 17px; margin-top: 20px; margin-bottom: 10px; }\n    .content-body p { margin-bottom: 16px; }\n    .content-body ul, .content-body ol { margin: 16px 0; padding-left: 24px; }\n    .content-body li { margin-bottom: 8px; }\n    .footer { background: #f8f9fa; padding: 16px 20px; font-size: 12px; color: #666; text-align: center; border-top: 1px solid #e9ecef; }\n    .footer-id { font-family: monospace; background: #e9ecef; padding: 2px 8px; border-radius: 4px; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"header-badge\">${tierEmoji} ${tierLabel}</div>\n      <h1>${draft.title || 'Título não disponível'}</h1>\n    </div>\n    <div class=\"meta-section\">\n      <div class=\"meta-grid\">\n        <div class=\"meta-item\"><div class=\"meta-label\">Palavras</div><div class=\"meta-value\">${wordCount}</div></div>\n        <div class=\"meta-item\"><div class=\"meta-label\">Leitura</div><div class=\"meta-value\">${readingTime} min</div></div>\n        <div class=\"meta-item\"><div class=\"meta-label\">Data Original</div><div class=\"meta-value\">${originalDate || createdDate}</div></div>\n        <div class=\"meta-item\"><div class=\"meta-label\">Fonte</div><div class=\"meta-value\">${sourceInfo}</div></div>\n      </div>\n    </div>\n    <div class=\"categories\">\n      <span class=\"meta-label\">Categoria: </span><span class=\"category-tag\">${categories}</span>\n      ${tags !== 'Sem tags' ? `<br><span class=\"meta-label\" style=\"margin-top:8px;display:inline-block;\">Tags: </span>${tags.split(', ').map(t => '<span class=\"category-tag\">' + t.trim() + '</span>').join('')}` : ''}\n    </div>\n    ${draft.excerpt ? `<div class=\"excerpt\"><div class=\"excerpt-label\">📋 Resumo</div><div class=\"excerpt-text\">${draft.excerpt}</div></div>` : ''}\n    <div class=\"content\">\n      <div class=\"content-label\">📄 Conteúdo Completo</div>\n      <div class=\"content-body\">${postContent}</div>\n    </div>\n    <div class=\"footer\">Post ID: <span class=\"footer-id\">${draft.id || 'N/A'}</span>${draft.slug ? ` | Slug: <span class=\"footer-id\">${draft.slug}</span>` : ''}</div>\n  </div>\n</body>\n</html>`;\n\n// ============================================\n// GERA O ARQUIVO COMO BINARY\n// ============================================\nconst fileName = `post_${draft.tier || 'draft'}_${(draft.id || 'unknown').substring(0, 8)}.html`;\nconst binaryData = Buffer.from(htmlContent, 'utf-8');\n\n// ============================================\n// RETORNA DADOS + BINARY\n// ============================================\nreturn {\n  json: {\n    chat_id: chatId,\n    caption: caption,\n    parse_mode: \"Markdown\",\n    reply_markup: JSON.stringify({ inline_keyboard: inlineKeyboard }),\n    draft_id: draft.id,\n    draft_title: draft.title,\n    file_name: fileName\n  },\n  binary: {\n    document: {\n      data: binaryData.toString('base64'),\n      mimeType: 'text/html',\n      fileName: fileName\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -384
+      ],
+      "id": "c22ecf87-186c-4956-b12f-05d67e41ade3",
+      "name": "PREPARAR TELEGRAM"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendDocument",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json.caption }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "={{ $json.parse_mode }}"
+            },
+            {
+              "name": "reply_markup",
+              "value": "={{ $json.reply_markup }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "document",
+              "inputDataFieldName": "document"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        688,
+        -384
+      ],
+      "id": "52ad3d1c-a01c-427a-b78d-55309696a0b5",
+      "name": "ENVIAR TELEGRAM"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Extrair Message ID da Resposta do Telegram\n// Após o HTTP Request sendDocument\n\n// A resposta do Telegram vem em $json\nconst telegramResponse = $json;\n\n// Verifica se a resposta foi bem-sucedida\nif (!telegramResponse.ok || !telegramResponse.result) {\n  throw new Error('Resposta do Telegram inválida: ' + JSON.stringify(telegramResponse));\n}\n\n// Extrai o message_id da resposta\n// Para sendDocument, o message_id vem em result.message_id\nconst messageId = telegramResponse.result.message_id;\n\n// Pega o draft_id do Code Node que preparou o payload\n// IMPORTANTE: Usamos $('Nome do Node') para acessar dados de nodes anteriores\nconst draftId = $('PREPARAR TELEGRAM').item.json.draft_id;\n\nif (!draftId) {\n  throw new Error('draft_id não encontrado no node anterior');\n}\n\n// Timestamp de quando a mensagem foi enviada com sucesso\nconst sentAt = new Date().toISOString();\n\n// Retorna objeto limpo para o Update a row1\nreturn {\n  post_id: draftId,               // ID do post para o filtro WHERE\n  telegram_message_id: messageId, // ID da mensagem no Telegram (bigint)\n  review_started_at: sentAt       // Timestamp do envio\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -384
+      ],
+      "id": "930db655-5f65-4672-ad7f-1dc2aa71dc41",
+      "name": "EXTRAIR MSG ID"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        -288
+      ],
+      "id": "69a2fa43-84c5-4837-8517-4277f996fc76",
+      "name": "DATA HORA"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Início do dia em Brasília (UTC-3)\nconst startOfDayBrasilia = new Date();\nstartOfDayBrasilia.setUTCHours(0, 0, 0, 0); // 00:00 Brasília = 03:00 UTC\n\n// Fim do dia em Brasília\nconst endOfDayBrasilia = new Date(startOfDayBrasilia);\nendOfDayBrasilia.setUTCHours(26, 59, 59, 999); // 23:59 Brasília = 02:59 UTC+1\n\nreturn {\n  dateStart: startOfDayBrasilia.toISOString(),\n  dateEnd: endOfDayBrasilia.toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -672,
+        -288
+      ],
+      "id": "85f46ec8-d535-4b89-b78f-97939f3ee4b6",
+      "name": "CALC DATAS BR"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Criar Sessão e Preparar Items para Update\n// Este node recebe todos os drafts do Supabase Select anterior\n\nconst allDrafts = $input.all();\n\nif (allDrafts.length === 0) {\n  throw new Error('Nenhum draft encontrado para revisão');\n}\n\n// Cria um ID único para esta sessão de revisão\n// O formato: review_timestamp_randomstring garante unicidade absoluta\nconst sessionId = `review_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\n// Conta total de posts nesta sessão\nconst totalPosts = allDrafts.length;\n\n// Timestamp atual que será usado para marcar quando esta sessão começou\nconst sessionStartTime = new Date().toISOString();\n\n// Transforma cada draft em um item enriquecido com dados de sessão\nreturn allDrafts.map((item, index) => {\n  const draft = item.json;\n  \n  return {\n    // Mantém todas as propriedades originais do draft\n    ...draft,\n    \n    // Adiciona as propriedades de sessão usando os nomes CORRETOS das suas colunas\n    review_session_id: sessionId,           // Nome correto da sua coluna\n    review_order: index + 1,                 // Posição: 1, 2, 3, etc\n    total_in_session: totalPosts,           // Nova coluna que você vai criar\n    review_started_at: sessionStartTime     // Marca quando a sessão começou\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        -288
+      ],
+      "id": "0aa5ed5d-363d-4dfe-825b-770a8e7826de",
+      "name": "CRIAR SESSAO"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "review_session_id",
+              "fieldValue": "={{ $json.review_session_id }}"
+            },
+            {
+              "fieldId": "review_order",
+              "fieldValue": "={{ $json.review_order }}"
+            },
+            {
+              "fieldId": "review_started_at",
+              "fieldValue": "={{ $json.review_started_at }}"
+            },
+            {
+              "fieldId": "telegram_message_id",
+              "fieldValue": "={{ $json.telegram_message_id }}"
+            },
+            {
+              "fieldId": "total_in_session",
+              "fieldValue": "={{ $json.total_in_session }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        416,
+        -160
+      ],
+      "id": "a32c6bc5-483c-4e3e-95ea-a7a2003ae3da",
+      "name": "SALVAR SESSAO",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -64,
+        -256
+      ],
+      "id": "ae554265-10a0-4d58-b8e1-f2f3faa11fbc",
+      "name": "LOOP ITEMS"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "vw_blog_drafts",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "review_session_id",
+              "keyValue": "={{ $json.review_session_id }}"
+            },
+            {
+              "keyName": "review_order",
+              "keyValue": "1"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        336,
+        -384
+      ],
+      "id": "3978b15e-1c69-4f92-922a-538f310de3f1",
+      "name": "BUSCAR POST 1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "telegram_message_id",
+              "fieldValue": "={{ $json.telegram_message_id }}"
+            },
+            {
+              "fieldId": "review_started_at",
+              "fieldValue": "={{ $json.review_started_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        -384
+      ],
+      "id": "8e0a5069-68d0-4c19-943d-1dd9e2d59510",
+      "name": "SALVAR MSG ID",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        144,
+        -352
+      ],
+      "id": "4d3932dd-a2b1-4839-af46-69a18ec001da",
+      "name": "FIM LOOP"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "TRIGGER": {
+      "main": [
+        [
+          {
+            "node": "DATA HORA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR DRAFTS": {
+      "main": [
+        [
+          {
+            "node": "CRIAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "EXTRAIR MSG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DATA HORA": {
+      "main": [
+        [
+          {
+            "node": "CALC DATAS BR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CALC DATAS BR": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR DRAFTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRIAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "LOOP ITEMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SALVAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "LOOP ITEMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LOOP ITEMS": {
+      "main": [
+        [
+          {
+            "node": "FIM LOOP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SALVAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR POST 1": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXTRAIR MSG ID": {
+      "main": [
+        [
+          {
+            "node": "SALVAR MSG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FIM LOOP": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR POST 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "a8810817-fd32-4340-b16d-174c62779e73",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "J7G0HJYT2yqL3WQq",
+  "tags": []
+}

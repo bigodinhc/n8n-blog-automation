@@ -1,0 +1,1174 @@
+{
+  "name": "[BLOG] 4 CALLBACK DRAFTS",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "callback_query",
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        -480
+      ],
+      "id": "332e4184-d09e-4791-af1e-427df6e61c2e",
+      "name": "TRIGGER CALLBACK",
+      "webhookId": "ce98bbc0-3766-4aa4-81b3-529a5350dcbe",
+      "credentials": {
+        "telegramApi": {
+          "id": "bOTEogqgvoJ84nia",
+          "name": "draft_blog_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Processar Callback com Quick Edit (ATUALIZADO)\nconst update = $json;\nconst callbackQuery = update.callback_query;\nconst callbackData = callbackQuery.data;\nconst userId = callbackQuery.from.id;\nconst userFullName = `${callbackQuery.from.first_name} ${callbackQuery.from.last_name || ''}`.trim();\nconst messageId = callbackQuery.message.message_id;\nconst chatId = callbackQuery.message.chat.id;\n\n// Timestamp atual\nconst now = new Date();\nconst nowISO = now.toISOString();\nconst dataBrasil = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });\nconst horaBrasil = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });\n\n// Parseia a acao - suporta formato simples (action_postid) e quick edit (qe_action_postid)\nconst parts = callbackData.split('_');\nlet action, postId;\n\nif (parts[0] === 'qe') {\n  // Quick edit callback: qe_action_postid\n  action = 'qe_' + parts[1]; // qe_title, qe_content, qe_tags, qe_confirm, qe_redo, qe_cancel\n  postId = parts.slice(2).join('_');\n} else {\n  // Callback normal: action_postid\n  action = parts[0];\n  postId = parts.slice(1).join('_');\n}\n\n// Define o novo status baseado na acao\nlet newStatus, statusEmoji, actionMessage, reviewNotes;\nlet needsFeedback = false;\nlet needsQuickEdit = false;\nlet quickEditType = null;\n\nswitch(action) {\n  case 'approve':\n    newStatus = 'approved';\n    statusEmoji = '✅';\n    actionMessage = 'APROVADO';\n    reviewNotes = `Aprovado por ${userFullName} via Telegram em ${dataBrasil} às ${horaBrasil}`;\n    break;\n    \n  case 'edit':\n    // NOVO: Mostrar menu de edicao rapida\n    return {\n      is_quick_edit_menu: true,\n      callback_query_id: callbackQuery.id,\n      post_id: postId,\n      chat_id: chatId,\n      message_id: messageId,\n      user_id: userId,\n      user_name: userFullName,\n      answer_callback: {\n        text: '✏️ Selecione o que editar',\n        show_alert: false\n      },\n      edit_menu: {\n        chat_id: chatId,\n        text: '✏️ *EDIÇÃO RÁPIDA*\\n━━━━━━━━━━━━━━━━━━━━━\\n\\n📝 O que você deseja editar?\\n\\n_Selecione uma opção abaixo:_',\n        parse_mode: 'Markdown',\n        reply_markup: JSON.stringify({\n          inline_keyboard: [\n            [\n              { text: '📝 Título', callback_data: `qe_title_${postId}` },\n              { text: '🏷️ Tags', callback_data: `qe_tags_${postId}` }\n            ],\n            [\n              { text: '📄 Conteúdo (AI)', callback_data: `qe_content_${postId}` }\n            ],\n            [\n              { text: '❌ Cancelar', callback_data: `qe_cancel_${postId}` }\n            ]\n          ]\n        })\n      }\n    };\n    \n  case 'qe_title':\n  case 'qe_tags':\n  case 'qe_content':\n    needsQuickEdit = true;\n    quickEditType = action.replace('qe_', '');\n    break;\n    \n  case 'qe_confirm':\n    return {\n      is_quick_edit_confirm: true,\n      callback_query_id: callbackQuery.id,\n      post_id: postId,\n      chat_id: chatId,\n      message_id: messageId,\n      user_id: userId,\n      user_name: userFullName,\n      answer_callback: {\n        text: '⏳ Aplicando alterações...',\n        show_alert: false\n      }\n    };\n    \n  case 'qe_redo':\n    return {\n      is_quick_edit_redo: true,\n      callback_query_id: callbackQuery.id,\n      post_id: postId,\n      chat_id: chatId,\n      message_id: messageId,\n      user_id: userId,\n      user_name: userFullName,\n      answer_callback: {\n        text: '🔄 Digite novamente',\n        show_alert: false\n      }\n    };\n    \n  case 'qe_cancel':\n    return {\n      is_quick_edit_cancel: true,\n      callback_query_id: callbackQuery.id,\n      post_id: postId,\n      chat_id: chatId,\n      message_id: messageId,\n      user_id: userId,\n      user_name: userFullName,\n      answer_callback: {\n        text: '❌ Edição cancelada',\n        show_alert: false\n      }\n    };\n    \n  case 'revise':\n    newStatus = 'pending_feedback';\n    statusEmoji = '✏️';\n    actionMessage = 'AGUARDANDO REVISÕES';\n    needsFeedback = true;\n    break;\n    \n  case 'reject':\n    newStatus = 'rejected';\n    statusEmoji = '❌';\n    actionMessage = 'REJEITADO';\n    reviewNotes = `Rejeitado por ${userFullName} via Telegram em ${dataBrasil} às ${horaBrasil}`;\n    break;\n    \n  case 'skip':\n    newStatus = 'draft';\n    statusEmoji = '⏭️';\n    actionMessage = 'PULADO';\n    reviewNotes = `Pulado para revisão posterior por ${userFullName} em ${dataBrasil} às ${horaBrasil}`;\n    break;\n    \n  case 'schedule':\n    newStatus = 'scheduled';\n    statusEmoji = '📅';\n    actionMessage = 'AGENDADO';\n    reviewNotes = `Agendado por ${userFullName} via Telegram em ${dataBrasil} às ${horaBrasil}`;\n    break;\n    \n  default:\n    console.log('Ação não reconhecida:', action);\n    newStatus = 'draft';\n    statusEmoji = '⚠️';\n    actionMessage = 'AÇÃO DESCONHECIDA';\n    reviewNotes = `Ação '${action}' não reconhecida em ${dataBrasil} às ${horaBrasil}`;\n}\n\n// Se precisa quick edit, prepara sessao\nif (needsQuickEdit) {\n  const editSessionId = `edit_${postId.substring(0, 8)}_${Date.now()}`;\n  \n  let promptText, fieldLabel;\n  switch(quickEditType) {\n    case 'title':\n      promptText = '📝 *EDITAR TÍTULO*\\n\\nEnvie o novo título do post:\\n\\n_Regras: 10-120 caracteres_';\n      fieldLabel = 'Título';\n      break;\n    case 'tags':\n      promptText = '🏷️ *EDITAR TAGS*\\n\\nEnvie as novas tags separadas por vírgula:\\n\\n_Exemplo: minério, china, vale, commodities_\\n_Regras: 1-10 tags, cada uma com 2-30 caracteres_';\n      fieldLabel = 'Tags';\n      break;\n    case 'content':\n      promptText = '📄 *EDITAR CONTEÚDO*\\n\\nDescreva as alterações que deseja no conteúdo:\\n\\n_As alterações serão processadas por AI_\\n_Regras: mínimo 20 caracteres_';\n      fieldLabel = 'Conteúdo';\n      break;\n  }\n  \n  return {\n    is_quick_edit_start: true,\n    callback_query_id: callbackQuery.id,\n    post_id: postId,\n    chat_id: chatId,\n    message_id: messageId,\n    user_id: userId,\n    user_name: userFullName,\n    edit_type: quickEditType,\n    field_label: fieldLabel,\n    edit_session: {\n      session_id: editSessionId,\n      post_id: postId,\n      chat_id: String(chatId),\n      user_id: String(userId),\n      message_id: messageId,\n      edit_type: quickEditType,\n      stage: 'waiting_input',\n      expires_at: new Date(Date.now() + 10 * 60000).toISOString()\n    },\n    answer_callback: {\n      text: `✏️ Editando ${fieldLabel.toLowerCase()}`,\n      show_alert: false\n    },\n    prompt_message: {\n      chat_id: chatId,\n      text: promptText,\n      parse_mode: 'Markdown'\n    }\n  };\n}\n\n// Se precisa feedback antigo (revisao com AI)\nif (needsFeedback) {\n  const feedbackSessionId = `feedback_${postId.substring(0, 8)}_${Date.now()}`;\n  const messageCaption = callbackQuery.message.caption || '';\n  const messageText = callbackQuery.message.text || messageCaption;\n  const messageLines = messageText.split('\\n');\n  let postTitle = 'Post';\n  \n  for (let i = 0; i < messageLines.length; i++) {\n    const line = messageLines[i].trim();\n    if (line.startsWith('*') && line.length > 10 && !line.includes('POST')) {\n      postTitle = line.replace(/\\*/g, '').trim();\n      break;\n    }\n  }\n  \n  return {\n    needs_feedback: true,\n    stop_flow: true,\n    callback_query_id: callbackQuery.id,\n    feedback_session: {\n      session_id: feedbackSessionId,\n      post_id: postId,\n      chat_id: chatId,\n      user_id: userId,\n      message_id: messageId,\n      status: 'waiting',\n      expires_at: new Date(Date.now() + 5 * 60000).toISOString()\n    },\n    telegram_response: {\n      callback_query_id: callbackQuery.id,\n      text: '✏️ Modo revisão ativado',\n      show_alert: false\n    },\n    edit_message: {\n      chat_id: chatId,\n      message_id: messageId,\n      text: `✏️ *AGUARDANDO SUAS REVISÕES*\\n\\n📝 Post: ${postTitle.substring(0, 50)}...\\n\\n_Digite as alterações necessárias na próxima mensagem..._\\n\\n⏰ Timeout: 5 minutos\\n\\n_ID: ${postId.substring(0, 8)}_`,\n      parse_mode: 'Markdown'\n    },\n    feedback_prompt: {\n      chat_id: chatId,\n      text: '✏️ *O que precisa ajustar?*\\n\\n_Digite suas observações:_',\n      parse_mode: 'Markdown'\n    }\n  };\n}\n\n// Retorno normal para outras acoes\nreturn {\n  needs_feedback: false,\n  callback_query_id: callbackQuery.id,\n  update_data: {\n    post_id: postId,\n    new_status: newStatus,\n    reviewed_by: userFullName,\n    reviewed_at: nowISO,\n    review_notes: reviewNotes || null\n  },\n  answer_callback: {\n    callback_query_id: callbackQuery.id,\n    text: `${statusEmoji} ${actionMessage}!`,\n    show_alert: false\n  },\n  edit_message: {\n    chat_id: chatId,\n    message_id: messageId,\n    text: `${statusEmoji} *POST ${actionMessage}*\\n\\n*Revisado por:* ${userFullName}\\n*Data:* ${dataBrasil}\\n*Horário:* ${horaBrasil}\\n\\nID: ${postId.substring(0, 8)}`,\n    parse_mode: 'Markdown'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        -384
+      ],
+      "id": "c9b733fd-15c1-462f-829a-0901e33f2247",
+      "name": "PROCESSAR CALLBACK"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7203b661-b2eb-48c2-89dd-add8b236f02f",
+              "name": "id",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "705a496c-55e4-4e29-abd5-f92c0361d773",
+              "name": "intelligence_id",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.intelligence_id }}",
+              "type": "string"
+            },
+            {
+              "id": "d8b61431-47fa-4e37-b627-765b239da3b6",
+              "name": "post_type",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.post_type }}",
+              "type": "string"
+            },
+            {
+              "id": "b3cea6f4-7a22-4cc3-a11f-fc4dab46b226",
+              "name": "post_status",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "71073a95-a8eb-4b1c-a5fb-2211c9a3fd20",
+              "name": "slug",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.slug }}",
+              "type": "string"
+            },
+            {
+              "id": "cebef619-4fbd-4580-a87d-9a54d98c0277",
+              "name": "content_markdown",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.content_markdown }}",
+              "type": "string"
+            },
+            {
+              "id": "88b2034a-aa7e-483b-9ce8-13f22a7b03af",
+              "name": "original_date",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.original_date }}",
+              "type": "string"
+            },
+            {
+              "id": "45ae3e4e-84fb-4282-98c2-c2084624fb2f",
+              "name": "created_at",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.created_at }}",
+              "type": "string"
+            },
+            {
+              "id": "ffbf53d9-cc1d-4bb3-bcc2-5d17411e7c48",
+              "name": "review_session_id",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.review_session_id }}",
+              "type": "string"
+            },
+            {
+              "id": "9ffaedeb-8155-4b9b-bbb7-643f30ada6eb",
+              "name": "review_order",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.review_order }}",
+              "type": "number"
+            },
+            {
+              "id": "f01452b4-ab72-42ea-be6b-59dcd1d86d8a",
+              "name": "review_started_at",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.review_started_at }}",
+              "type": "string"
+            },
+            {
+              "id": "584de805-625b-49a4-b8ea-7021d3d78bfa",
+              "name": "telegram_message_id",
+              "value": "={{ $json.edit_message.message_id }}",
+              "type": "number"
+            },
+            {
+              "id": "665891ed-8469-4c65-8d39-1f18854cbf37",
+              "name": "total_in_session",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.total_in_session }}",
+              "type": "number"
+            },
+            {
+              "id": "7180798d-1068-4f5a-8c6c-7e883c74d03c",
+              "name": "update_data.new_status",
+              "value": "={{ $json.update_data.new_status }}",
+              "type": "string"
+            },
+            {
+              "id": "f832119e-3461-4c64-8c08-850dae112899",
+              "name": "update_data.review_notes",
+              "value": "={{ $json.update_data.review_notes }}",
+              "type": "string"
+            },
+            {
+              "id": "d58e618b-759e-4e27-b669-e2fb694dc483",
+              "name": "answer_callback",
+              "value": "={{ $json.answer_callback }}",
+              "type": "object"
+            },
+            {
+              "id": "ced0e320-98a4-46df-9643-e5da1266a4e1",
+              "name": "edit_message",
+              "value": "={{ $json.edit_message }}",
+              "type": "object"
+            },
+            {
+              "id": "8fa05e68-fcdc-4db9-8906-a55ea334e499",
+              "name": "reviewed_at",
+              "value": "={{ $json.update_data.reviewed_at }}",
+              "type": "string"
+            },
+            {
+              "id": "3510a0e8-77eb-4949-b63d-2b74be00151f",
+              "name": "reviewed_by",
+              "value": "={{ $json.update_data.reviewed_by }}",
+              "type": "string"
+            },
+            {
+              "id": "77acd6f9-10c0-4a47-b0c9-b1cb64b872ef",
+              "name": "title",
+              "value": "={{ $('BUSCAR POST ATUAL').item.json.title }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        928,
+        -192
+      ],
+      "id": "282e46b2-2f3a-4e9a-89c3-15d525fdda33",
+      "name": "MONTAR CAMPOS"
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $('PROCESSAR CALLBACK').item.json.answer_callback.callback_query_id }}",
+        "additionalFields": {
+          "show_alert": false,
+          "text": "={{ $('PROCESSAR CALLBACK').item.json.answer_callback.text }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1376,
+        -192
+      ],
+      "id": "a871c777-3afe-4f71-b4dc-91d0b959d25f",
+      "name": "RESPONDER CALLBACK",
+      "webhookId": "e493bd94-4948-4e9f-84c1-639e4c2fe5fe",
+      "credentials": {
+        "telegramApi": {
+          "id": "bOTEogqgvoJ84nia",
+          "name": "draft_blog_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('MONTAR CAMPOS').item.json.edit_message.chat_id }}",
+        "text": "={{ $('MONTAR CAMPOS').item.json.edit_message.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        -192
+      ],
+      "id": "a3e3bf18-7ef4-4e04-bc32-6be9b980e430",
+      "name": "EDITAR MSG STATUS",
+      "webhookId": "9f105819-ba78-4b0d-b033-141977e729dd",
+      "credentials": {
+        "telegramApi": {
+          "id": "bOTEogqgvoJ84nia",
+          "name": "draft_blog_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "vw_blog_drafts",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.update_data.post_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -192
+      ],
+      "id": "654086f8-9362-458d-929a-51a1eb0cb083",
+      "name": "BUSCAR POST ATUAL",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "b30a5102-ef28-4a1f-a535-7880d5ab1300",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2048,
+        -192
+      ],
+      "id": "a408fbc8-fdf8-4c05-88b7-40e45aae93e8",
+      "name": "TEM PROXIMO?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "vw_blog_drafts",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "review_session_id",
+              "condition": "eq",
+              "keyValue": "={{ $('MONTAR CAMPOS').item.json.review_session_id }}"
+            },
+            {
+              "keyName": "review_order",
+              "condition": "eq",
+              "keyValue": "={{ $('MONTAR CAMPOS').item.json.review_order + 1 }}"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "draft"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1824,
+        -192
+      ],
+      "id": "af0d277d-4f0e-4330-83f9-e6525262c463",
+      "name": "BUSCAR PROXIMO",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.update_data.new_status }}"
+            },
+            {
+              "fieldId": "review_started_at",
+              "fieldValue": "={{ $json.review_started_at }}"
+            },
+            {
+              "fieldId": "review_notes",
+              "fieldValue": "={{ $json.update_data.review_notes }}"
+            },
+            {
+              "fieldId": "review_session_id",
+              "fieldValue": "={{ $json.review_session_id }}"
+            },
+            {
+              "fieldId": "telegram_message_id",
+              "fieldValue": "={{ $json.telegram_message_id }}"
+            },
+            {
+              "fieldId": "reviewed_at",
+              "fieldValue": "={{ $json.reviewed_at }}"
+            },
+            {
+              "fieldId": "reviewed_by",
+              "fieldValue": "={{ $json.reviewed_by }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        -192
+      ],
+      "id": "6729399f-e9e9-4178-9f4c-c4e4b12c62f1",
+      "name": "SALVAR STATUS",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Preparar Post HTML + Payload Telegram (sendDocument)\n// Replica a lógica do Workflow 3 para posts subsequentes\n\nconst draft = $json;\n\n// Validação rápida\nif (!draft || !draft.id) {\n  throw new Error('Próximo post não possui dados válidos');\n}\n\n// Variáveis de controle da sessão\nconst currentNumber = draft.review_order || 1;\nconst totalPosts = draft.total_in_session || 1;\n\n// Define o chat_id\nconst chatId = \"8375309778\";\n\n// Configuração de tier com cores para o HTML\nlet tierEmoji, tierLabel, tierColor;\nswitch(draft.tier) {\n  case 'TIER_1':\n    tierEmoji = '🔴';\n    tierLabel = 'CRÍTICO - Revisão Urgente';\n    tierColor = '#dc3545'; // vermelho\n    break;\n  case 'TIER_2':\n    tierEmoji = '🟡';\n    tierLabel = 'Normal - Revisão Regular';\n    tierColor = '#ffc107'; // amarelo\n    break;\n  case 'TIER_3':\n    tierEmoji = '🟢';\n    tierLabel = 'Baixa Prioridade';\n    tierColor = '#28a745'; // verde\n    break;\n  default:\n    tierEmoji = '⚪';\n    tierLabel = 'Sem Classificação';\n    tierColor = '#6c757d'; // cinza\n}\n\n// Formata a data\nconst createdDate = draft.created_at \n  ? new Date(draft.created_at).toLocaleDateString('pt-BR', {\n      day: '2-digit',\n      month: '2-digit', \n      year: 'numeric',\n      hour: '2-digit',\n      minute: '2-digit'\n    })\n  : 'Data não disponível';\n\nconst originalDate = draft.original_date\n  ? new Date(draft.original_date).toLocaleDateString('pt-BR')\n  : null;\n\n// Formata categorias e tags\nconst categories = Array.isArray(draft.categories) \n  ? draft.categories.join(', ') \n  : (draft.categories || 'Sem categorias');\n\nconst tags = Array.isArray(draft.tags) \n  ? draft.tags.join(', ') \n  : (draft.tags || '');\n\n// Conteúdo do post (prefere HTML, fallback para Markdown)\nconst postContent = draft.content_html || draft.content_markdown || 'Conteúdo não disponível';\n\n// ============================================\n// TEMPLATE HTML COMPLETO E PROFISSIONAL\n// ============================================\nconst htmlContent = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${draft.title || 'Post para Revisão'}</title>\n  <style>\n    * {\n      box-sizing: border-box;\n      margin: 0;\n      padding: 0;\n    }\n    \n    body {\n      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;\n      line-height: 1.6;\n      color: #333;\n      background: #f5f5f5;\n      padding: 16px;\n    }\n    \n    .container {\n      max-width: 800px;\n      margin: 0 auto;\n      background: white;\n      border-radius: 12px;\n      box-shadow: 0 2px 8px rgba(0,0,0,0.1);\n      overflow: hidden;\n    }\n    \n    .header {\n      background: ${tierColor};\n      color: white;\n      padding: 20px;\n    }\n    \n    .header-badge {\n      display: inline-block;\n      background: rgba(255,255,255,0.2);\n      padding: 4px 12px;\n      border-radius: 20px;\n      font-size: 14px;\n      margin-bottom: 12px;\n    }\n    \n    .header h1 {\n      font-size: 22px;\n      font-weight: 600;\n      line-height: 1.3;\n    }\n    \n    .meta-section {\n      background: #f8f9fa;\n      padding: 16px 20px;\n      border-bottom: 1px solid #e9ecef;\n    }\n    \n    .meta-grid {\n      display: grid;\n      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));\n      gap: 12px;\n    }\n    \n    .meta-item {\n      font-size: 14px;\n    }\n    \n    .meta-label {\n      color: #666;\n      font-size: 12px;\n      text-transform: uppercase;\n      letter-spacing: 0.5px;\n    }\n    \n    .meta-value {\n      font-weight: 500;\n      color: #333;\n    }\n    \n    .categories {\n      padding: 12px 20px;\n      background: #fff;\n      border-bottom: 1px solid #e9ecef;\n    }\n    \n    .category-tag {\n      display: inline-block;\n      background: #e9ecef;\n      color: #495057;\n      padding: 4px 10px;\n      border-radius: 4px;\n      font-size: 13px;\n      margin: 2px 4px 2px 0;\n    }\n    \n    .excerpt {\n      padding: 20px;\n      background: #fffbeb;\n      border-left: 4px solid #f59e0b;\n      margin: 20px;\n      border-radius: 0 8px 8px 0;\n    }\n    \n    .excerpt-label {\n      font-size: 12px;\n      text-transform: uppercase;\n      color: #92400e;\n      margin-bottom: 8px;\n      font-weight: 600;\n    }\n    \n    .excerpt-text {\n      color: #78350f;\n      font-style: italic;\n    }\n    \n    .content {\n      padding: 24px 20px;\n    }\n    \n    .content-label {\n      font-size: 12px;\n      text-transform: uppercase;\n      color: #666;\n      margin-bottom: 16px;\n      font-weight: 600;\n      letter-spacing: 0.5px;\n    }\n    \n    .content-body {\n      font-size: 16px;\n      line-height: 1.8;\n    }\n    \n    .content-body h1, .content-body h2, .content-body h3 {\n      margin-top: 24px;\n      margin-bottom: 12px;\n      color: #1a1a1a;\n    }\n    \n    .content-body h2 {\n      font-size: 20px;\n      border-bottom: 2px solid #e9ecef;\n      padding-bottom: 8px;\n    }\n    \n    .content-body h3 {\n      font-size: 17px;\n    }\n    \n    .content-body p {\n      margin-bottom: 16px;\n    }\n    \n    .content-body ul, .content-body ol {\n      margin: 16px 0;\n      padding-left: 24px;\n    }\n    \n    .content-body li {\n      margin-bottom: 8px;\n    }\n    \n    .content-body strong {\n      color: #1a1a1a;\n    }\n    \n    .footer {\n      background: #f8f9fa;\n      padding: 16px 20px;\n      font-size: 12px;\n      color: #666;\n      text-align: center;\n      border-top: 1px solid #e9ecef;\n    }\n    \n    .footer-id {\n      font-family: monospace;\n      background: #e9ecef;\n      padding: 2px 8px;\n      border-radius: 4px;\n    }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"header-badge\">${tierEmoji} ${tierLabel}</div>\n      <h1>${draft.title || 'Título não disponível'}</h1>\n    </div>\n    \n    <div class=\"meta-section\">\n      <div class=\"meta-grid\">\n        <div class=\"meta-item\">\n          <div class=\"meta-label\">Palavras</div>\n          <div class=\"meta-value\">${draft.word_count || 0}</div>\n        </div>\n        <div class=\"meta-item\">\n          <div class=\"meta-label\">Tempo de Leitura</div>\n          <div class=\"meta-value\">${draft.reading_time_minutes || 1} min</div>\n        </div>\n        <div class=\"meta-item\">\n          <div class=\"meta-label\">Data Original</div>\n          <div class=\"meta-value\">${originalDate || createdDate}</div>\n        </div>\n        <div class=\"meta-item\">\n          <div class=\"meta-label\">Criado em</div>\n          <div class=\"meta-value\">${createdDate}</div>\n        </div>\n      </div>\n    </div>\n    \n    <div class=\"categories\">\n      <span class=\"meta-label\">Categorias: </span>\n      ${(Array.isArray(draft.categories) ? draft.categories : [categories])\n        .map(cat => `<span class=\"category-tag\">${cat}</span>`).join('')}\n      ${tags ? `<br><span class=\"meta-label\" style=\"margin-top:8px;display:inline-block;\">Tags: </span>\n      ${(Array.isArray(draft.tags) ? draft.tags : tags.split(','))\n        .map(tag => `<span class=\"category-tag\">${tag.trim()}</span>`).join('')}` : ''}\n    </div>\n    \n    ${draft.excerpt ? `\n    <div class=\"excerpt\">\n      <div class=\"excerpt-label\">📋 Resumo / Excerpt</div>\n      <div class=\"excerpt-text\">${draft.excerpt}</div>\n    </div>\n    ` : ''}\n    \n    <div class=\"content\">\n      <div class=\"content-label\">📄 Conteúdo Completo</div>\n      <div class=\"content-body\">\n        ${postContent}\n      </div>\n    </div>\n    \n    <div class=\"footer\">\n      Post ID: <span class=\"footer-id\">${draft.id || 'N/A'}</span>\n      ${draft.slug ? ` | Slug: <span class=\"footer-id\">${draft.slug}</span>` : ''}\n    </div>\n  </div>\n</body>\n</html>`;\n\n// ============================================\n// CAPTION PARA O TELEGRAM (resumido)\n// ============================================\nconst caption = `📝 *POST ${currentNumber}/${totalPosts}*  |  ${tierEmoji} *${draft.tier || 'N/A'}*\n\n*${draft.title || 'Sem título'}*\n\n📊 ${draft.word_count || 0} palavras  •  ⏱ ${draft.reading_time_minutes || 1} min\n📁 ${categories}\n\n💡 _Abra o arquivo HTML para revisar o conteúdo completo_`;\n\n// ============================================\n// BOTÕES INLINE\n// ============================================\nconst inlineKeyboard = [\n  [\n    { text: '✅ Aprovar', callback_data: `approve_${draft.id}` },\n    { text: '📅 Agendar', callback_data: `schedule_${draft.id}` }\n  ],\n  [\n    { text: '✏️ Editar', callback_data: `edit_${draft.id}` },\n    { text: '❌ Rejeitar', callback_data: `reject_${draft.id}` }\n  ],\n  [\n    { text: '⏭️ Próximo', callback_data: `skip_${draft.id}` }\n  ]\n];\n\n// ============================================\n// GERA O ARQUIVO COMO BINARY\n// ============================================\nconst fileName = `post_${draft.tier || 'draft'}_${(draft.id || 'unknown').substring(0, 8)}.html`;\n\n// Converte o HTML para Buffer (binary)\nconst binaryData = Buffer.from(htmlContent, 'utf-8');\n\n// ============================================\n// RETORNA DADOS + BINARY PARA O HTTP REQUEST\n// ============================================\nreturn {\n  json: {\n    chat_id: chatId,\n    caption: caption,\n    parse_mode: \"Markdown\",\n    reply_markup: JSON.stringify({\n      inline_keyboard: inlineKeyboard\n    }),\n    // Dados extras para tracking\n    draft_id: draft.id,\n    draft_title: draft.title,\n    file_name: fileName\n  },\n  binary: {\n    document: {\n      data: binaryData.toString('base64'),\n      mimeType: 'text/html',\n      fileName: fileName\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        -288
+      ],
+      "id": "27a1085c-1c6d-4c64-889a-4e45b4d89831",
+      "name": "PREPARAR TELEGRAM"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendDocument",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json.caption }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "={{ $json.parse_mode }}"
+            },
+            {
+              "name": "reply_markup",
+              "value": "={{ $json.reply_markup }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "document",
+              "inputDataFieldName": "document"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2496,
+        -288
+      ],
+      "id": "56a0f72e-3e4d-4a9b-8e55-7df394c660e0",
+      "name": "ENVIAR TELEGRAM"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Extrair Message ID da Resposta do Telegram\n\nconst telegramResponse = $json;\n\nif (!telegramResponse.ok || !telegramResponse.result) {\n  throw new Error('Resposta do Telegram inválida: ' + JSON.stringify(telegramResponse));\n}\n\nconst messageId = telegramResponse.result.message_id;\n\n// Pega o draft_id do Code Node que preparou o payload\nconst draftId = $('PREPARAR TELEGRAM').item.json.draft_id;\n\nif (!draftId) {\n  throw new Error('draft_id não encontrado no node anterior');\n}\n\nconst sentAt = new Date().toISOString();\n\nreturn {\n  post_id: draftId,\n  telegram_message_id: messageId,\n  review_started_at: sentAt\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        -288
+      ],
+      "id": "ee37e226-3369-495c-b54b-c9a1ede76a5d",
+      "name": "EXTRAIR MSG ID"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "telegram_message_id",
+              "fieldValue": "={{ $json.telegram_message_id }}"
+            },
+            {
+              "fieldId": "review_started_at",
+              "fieldValue": "={{ $json.review_started_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2944,
+        -288
+      ],
+      "id": "9fa27e0b-8036-402c-8a85-fd509b25c1e8",
+      "name": "SALVAR MSG ID",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Preparar Resumo Final da Sessão\n\n// Busca informações da sessão que acabou de ser concluída\n// USA MONTAR CAMPOS pois SALVAR STATUS não retorna os dados\nconst currentPost = $('MONTAR CAMPOS').first().json;\nconst sessionId = currentPost.review_session_id || 'sessao_desconhecida';\nconst totalPosts = currentPost.total_in_session || 1;\n\nconst chatId = \"8375309778\";\n\n// Mensagem de conclusão celebratória\nconst messageText = `🎉 *REVISÃO CONCLUÍDA!*\n━━━━━━━━━━━━━━━━━━━━━\n\nVocê finalizou a revisão de *${totalPosts} ${totalPosts === 1 ? 'post' : 'posts'}*!\n\n📊 *Próximos passos:*\n- Posts aprovados serão publicados automaticamente\n- Posts para revisão aguardam seus ajustes\n- Posts agendados serão publicados nas datas definidas\n- Posts rejeitados foram arquivados\n\n✨ *Excelente trabalho!*\n\n━━━━━━━━━━━━━━━━━━━━━\n_Sessão: ${sessionId.substring(0, 25)}..._\n_Concluída em: ${new Date().toLocaleString('pt-BR')}_`;\n\nconst telegramPayload = {\n  chat_id: chatId,\n  text: messageText,\n  parse_mode: \"Markdown\"\n};\n\nreturn {\n  telegram_payload: telegramPayload,\n  session_id: sessionId,\n  total_posts: totalPosts,\n  completed_at: new Date().toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        -96
+      ],
+      "id": "13ffe1d8-200d-4203-a560-0dadde1cd5cb",
+      "name": "PREPARAR FIM SESSAO"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.telegram_payload }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2496,
+        -96
+      ],
+      "id": "ac776911-eb5e-46e3-9daf-c9e1020f254f",
+      "name": "ENVIAR FIM SESSAO"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Preparar Dados Completos\n// Agora temos acesso ao post completo do banco com session_id correto\n\n// Dados do callback (do primeiro Code Node)\nconst callbackData = $('PROCESSAR CALLBACK').item.json;\nconst action = callbackData.update_data?.new_status ? null : callbackData.update_data;\nconst userFullName = callbackData.update_data?.reviewed_by || 'Usuário';\nconst messageId = callbackData.edit_message?.message_id;\nconst chatId = callbackData.edit_message?.chat_id;\nconst callbackQueryId = callbackData.callback_query_id;\n\n// Dados do post do banco (do Supabase Select)\nconst post = $json;\nconst postId = post.id;\nconst postTitle = post.title;\nconst sessionId = post.review_session_id;\n\n// Timestamp formatado\nconst now = new Date();\nconst nowISO = now.toISOString();\nconst dataBrasil = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });\nconst horaBrasil = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });\n\n// Pega dados já processados do PROCESSAR CALLBACK\nconst updateData = callbackData.update_data || {};\nconst answerCallback = callbackData.answer_callback || {};\nconst editMessage = callbackData.edit_message || {};\n\n// Atualiza edit_message com dados do banco\neditMessage.text = editMessage.text || `Post processado: ${postTitle}`;\n\nreturn {\n  update_data: {\n    ...updateData,\n    post_id: postId\n  },\n  answer_callback: answerCallback,\n  edit_message: editMessage,\n  debug: {\n    post_id: postId,\n    session_id: sessionId,\n    post_title: postTitle\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        -192
+      ],
+      "id": "2556de57-6154-4ac8-bab4-41ef273246b6",
+      "name": "PREPARAR UPDATE"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c47095f6-5065-4067-a74e-cadba359ae23",
+              "leftValue": "={{ $json.needs_feedback }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        -288
+      ],
+      "id": "42d8a539-3a5a-40ad-9ea5-3c57d95e993e",
+      "name": "PRECISA FEEDBACK?"
+    },
+    {
+      "parameters": {
+        "tableId": "feedback_sessions",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "post_id",
+              "fieldValue": "={{ $json.feedback_session.post_id }}"
+            },
+            {
+              "fieldId": "chat_id",
+              "fieldValue": "={{ $json.feedback_session.chat_id }}"
+            },
+            {
+              "fieldId": "user_id",
+              "fieldValue": "={{ $json.feedback_session.user_id }}"
+            },
+            {
+              "fieldId": "message_id",
+              "fieldValue": "={{ $json.feedback_session.message_id }}"
+            },
+            {
+              "fieldId": "expires_at",
+              "fieldValue": "={{ $json.feedback_session.expires_at }}"
+            },
+            {
+              "fieldId": "session_id",
+              "fieldValue": "={{ $json.feedback_session.session_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -384
+      ],
+      "id": "d224ce2f-f32f-412a-83fc-6bdc527f0ffb",
+      "name": "CRIAR SESSAO FEEDBACK",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $('TRIGGER CALLBACK').item.json.callback_query.id }}",
+        "additionalFields": {
+          "show_alert": false,
+          "text": "={{ $('PROCESSAR CALLBACK').item.json.telegram_response.text }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        -384
+      ],
+      "id": "e0ec17ed-b2d8-4820-8fbb-16cb19d8447f",
+      "name": "RESPONDER CALLBACK FB",
+      "webhookId": "6dd0fc0b-8dd5-463b-b3b8-b2040ece0018",
+      "credentials": {
+        "telegramApi": {
+          "id": "bOTEogqgvoJ84nia",
+          "name": "draft_blog_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('PROCESSAR CALLBACK').item.json.edit_message.chat_id }}",
+        "text": "={{ $('PROCESSAR CALLBACK').item.json.edit_message.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        928,
+        -384
+      ],
+      "id": "50f164cc-873a-48ad-a3df-ca529635a273",
+      "name": "EDITAR MSG FEEDBACK",
+      "webhookId": "1ad975f7-fed7-46ae-987f-fa3de0c6a107",
+      "credentials": {
+        "telegramApi": {
+          "id": "bOTEogqgvoJ84nia",
+          "name": "draft_blog_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.result.chat.id }}",
+        "text": "={{ $json.result.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1168,
+        -448
+      ],
+      "id": "fb00ad56-4c7e-44a7-8577-48f6f489de4c",
+      "name": "ENVIAR PROMPT FB",
+      "webhookId": "6d99cb0a-0359-4cff-8470-009d3283a28f",
+      "credentials": {
+        "telegramApi": {
+          "id": "bOTEogqgvoJ84nia",
+          "name": "draft_blog_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "check-callback",
+              "leftValue": "={{ $json.callback_query }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "router-update-type",
+      "name": "TIPO DE UPDATE?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -416,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "QElqWkwrvoxGKDN4"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "ignoreTypeMismatchErrors": true,
+          "attemptToConvertTypes": true,
+          "attemptToAutoMapInputData": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "exec-wf45",
+      "name": "EXECUTAR WF4.5 FEEDBACK",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -192,
+        -576
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "yr7VUG1VMi8o8fi9"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "chamar-wf6-wordpress",
+      "name": "CHAMAR WF6 WORDPRESS",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2720,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "bKvqmScFWW9KK8ur"
+        },
+        "workflowInputs": {
+          "value": {
+            "chat_id": "={{ $('TRIGGER CALLBACK').item.json.callback_query.message.chat.id }}",
+            "user_id": "={{ $('TRIGGER CALLBACK').item.json.callback_query.from.id }}",
+            "user_name": "={{ $('TRIGGER CALLBACK').item.json.callback_query.from.first_name }}",
+            "message_id": "={{ $('TRIGGER CALLBACK').item.json.callback_query.message.message_id }}",
+            "callback_data": "={{ $('TRIGGER CALLBACK').item.json.callback_query.data }}",
+            "callback_query_id": "={{ $('TRIGGER CALLBACK').item.json.callback_query.id }}"
+          },
+          "mappingMode": "defineBelow"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "exec-wf47-qe",
+      "name": "EXECUTAR WF4.7 QUICK EDIT",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        256,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              },
+              "leftValue": "={{ $json.is_quick_edit_menu }}",
+              "rightValue": "true"
+            },
+            {
+              "id": "2",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.is_quick_edit_start }}",
+              "rightValue": "true"
+            },
+            {
+              "id": "3",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.is_quick_edit_confirm }}",
+              "rightValue": "true"
+            },
+            {
+              "id": "4",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.is_quick_edit_redo }}",
+              "rightValue": "true"
+            },
+            {
+              "id": "5",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.is_quick_edit_cancel }}",
+              "rightValue": "true"
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "is-qe-callback",
+      "name": "EH QUICK EDIT?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        32,
+        -384
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "MONTAR CAMPOS": {
+      "main": [
+        [
+          {
+            "node": "SALVAR STATUS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EDITAR MSG STATUS": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR PROXIMO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR POST ATUAL": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR UPDATE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR PROXIMO": {
+      "main": [
+        [
+          {
+            "node": "TEM PROXIMO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEM PROXIMO?": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PREPARAR FIM SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "EXTRAIR MSG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXTRAIR MSG ID": {
+      "main": [
+        [
+          {
+            "node": "SALVAR MSG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR FIM SESSAO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR FIM SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR UPDATE": {
+      "main": [
+        [
+          {
+            "node": "MONTAR CAMPOS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PRECISA FEEDBACK?": {
+      "main": [
+        [
+          {
+            "node": "CRIAR SESSAO FEEDBACK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BUSCAR POST ATUAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRIAR SESSAO FEEDBACK": {
+      "main": [
+        [
+          {
+            "node": "RESPONDER CALLBACK FB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RESPONDER CALLBACK FB": {
+      "main": [
+        [
+          {
+            "node": "EDITAR MSG FEEDBACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EDITAR MSG FEEDBACK": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR PROMPT FB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "EH QUICK EDIT?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RESPONDER CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "EDITAR MSG STATUS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SALVAR STATUS": {
+      "main": [
+        [
+          {
+            "node": "RESPONDER CALLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TRIGGER CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "TIPO DE UPDATE?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TIPO DE UPDATE?": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR CALLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EXECUTAR WF4.5 FEEDBACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR FIM SESSAO": {
+      "main": [
+        [
+          {
+            "node": "CHAMAR WF6 WORDPRESS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EH QUICK EDIT?": {
+      "main": [
+        [
+          {
+            "node": "EXECUTAR WF4.7 QUICK EDIT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PRECISA FEEDBACK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "48323ecd-b562-4129-a08f-bca457a63bee",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "Eqj6uTE4pFizUsKH",
+  "tags": []
+}

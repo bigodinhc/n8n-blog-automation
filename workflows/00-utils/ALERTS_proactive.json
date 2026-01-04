@@ -1,0 +1,230 @@
+{
+  "name": "[BLOG] ALERTS PROACTIVE",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "A CADA 2 HORAS",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "content_workflow",
+        "limit": 100,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "updated_at",
+              "condition": "gte",
+              "keyValue": "={{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "query-activity",
+      "name": "QUERY ATIVIDADE",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        224,
+        0
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verificar se houve atividade nas ultimas 6 horas\n\nconst items = $input.all().map(i => i.json);\nconst now = new Date();\nconst sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);\n\nlet lastActivityDate = null;\n\nfor (const item of items) {\n  const dates = [\n    item.created_at,\n    item.updated_at,\n    item.review_started_at,\n    item.reviewed_at\n  ].filter(d => d);\n  \n  for (const dateStr of dates) {\n    const date = new Date(dateStr);\n    if (!lastActivityDate || date > lastActivityDate) {\n      lastActivityDate = date;\n    }\n  }\n}\n\nconst isInactive = !lastActivityDate || lastActivityDate < sixHoursAgo;\n\nlet hoursInactive = 0;\nif (lastActivityDate) {\n  hoursInactive = Math.round((now - lastActivityDate) / (1000 * 60 * 60));\n}\n\nconst pendingCount = items.filter(i => ['draft', 'pending_review'].includes(i.status)).length;\n\nreturn [{\n  json: {\n    isInactive,\n    hoursInactive,\n    lastActivityFormatted: lastActivityDate ? lastActivityDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'Nunca',\n    pendingCount,\n    shouldAlert: isInactive\n  }\n}];"
+      },
+      "id": "check-activity",
+      "name": "VERIFICAR ATIVIDADE",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        448,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "combinator": "and"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.shouldAlert }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-should-alert",
+      "name": "DEVE ALERTAR?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        672,
+        0
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar mensagem de alerta\n\nconst data = $input.first().json;\n\nlet message = `\\u26a0\\ufe0f *ALERTA: Sistema Inativo*\\n\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\n\\n`;\nmessage += `\\u23f0 *Ultima atividade:* ${data.lastActivityFormatted}\\n`;\nmessage += `\\ud83d\\udcca *Horas sem atividade:* ${data.hoursInactive}h\\n\\n`;\n\nif (data.pendingCount > 0) {\n  message += `\\ud83d\\udcdd *Pendentes na fila:* ${data.pendingCount} artigo(s)\\n\\n`;\n}\n\nmessage += `\\ud83d\\udca1 *Sugestoes:*\\n`;\nmessage += `   \\u2022 Verificar fontes RSS\\n`;\nmessage += `   \\u2022 Adicionar noticia via /add\\n`;\nmessage += `   \\u2022 Usar /status para diagnostico\\n\\n`;\nmessage += `_Este alerta e enviado automaticamente quando o sistema fica 6h+ sem processar conteudo._`;\n\nreturn [{ json: { message, parse_mode: 'Markdown' } }];"
+      },
+      "id": "format-alert",
+      "name": "FORMATAR ALERTA",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        880,
+        -96
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "chatId": "8375309778",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "send-alert",
+      "name": "ENVIAR ALERTA",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        1104,
+        -96
+      ],
+      "typeVersion": 1.2,
+      "webhookId": "5fab4802-bb14-42b1-b8a0-c6f91f2b1184",
+      "credentials": {
+        "telegramApi": {
+          "id": "wuMTVqE3TWH1tFbK",
+          "name": "MktStatus Bot"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-alert",
+      "name": "SEM ALERTA",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        880,
+        112
+      ],
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "A CADA 2 HORAS": {
+      "main": [
+        [
+          {
+            "node": "QUERY ATIVIDADE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUERY ATIVIDADE": {
+      "main": [
+        [
+          {
+            "node": "VERIFICAR ATIVIDADE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VERIFICAR ATIVIDADE": {
+      "main": [
+        [
+          {
+            "node": "DEVE ALERTAR?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DEVE ALERTAR?": {
+      "main": [
+        [
+          {
+            "node": "FORMATAR ALERTA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SEM ALERTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FORMATAR ALERTA": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR ALERTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "b7e39b29-aa7e-43e4-ad9d-34ede016e6e7",
+  "meta": {
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "OLgG9Y2iHQVujYXB",
+  "tags": []
+}

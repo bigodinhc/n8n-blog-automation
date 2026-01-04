@@ -1,0 +1,49 @@
+# Dados temporarios
+*.tmp
+*.temp
+dataset_*.json
+
+# Secrets e credenciais
+.env
+.env.*
+*.key
+*.pem
+credentials.json
+secrets.json
+
+# Logs
+*.log
+logs/
+
+# IDE e editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Node modules (caso use scripts Node)
+node_modules/
+
+# Python (caso use scripts Python)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Claude Code (entire folder)
+.claude/
+
+# Backups locais
+*.bak
+*.backup
+*_backup/
+
+# Arquivos de teste
+test_*.json
+debug_*.json

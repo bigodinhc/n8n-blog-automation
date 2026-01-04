@@ -1,0 +1,477 @@
+{
+  "name": "[BLOG] CMD TELEGRAM COMMANDS",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "trigger-cmd",
+      "name": "TRIGGER COMANDOS",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        16
+      ],
+      "webhookId": "1dc2bf86-bc35-4a20-b8cc-ef1e2855d643",
+      "credentials": {
+        "telegramApi": {
+          "id": "wuMTVqE3TWH1tFbK",
+          "name": "MktStatus Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and",
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/status"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and",
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "2",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/queue"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and",
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/stats"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "switch-command",
+      "name": "QUAL COMANDO?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "content_workflow",
+        "returnAll": true
+      },
+      "id": "query-status",
+      "name": "QUERY STATUS",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        512,
+        -144
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "published_content",
+        "limit": 100,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "published_at",
+              "condition": "gte",
+              "keyValue": "={{ new Date().toISOString().split('T')[0] }}"
+            }
+          ]
+        }
+      },
+      "id": "query-published",
+      "name": "QUERY PUBLICADOS",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -144
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar mensagem de /status\n\nconst workflowData = $('QUERY STATUS').all().map(i => i.json);\nconst publishedData = $input.all().map(i => i.json);\n\n// Contar status dos workflows\nconst drafts = workflowData.filter(w => w.status === 'draft').length;\nconst pendingReview = workflowData.filter(w => w.status === 'pending_review').length;\nconst approved = workflowData.filter(w => w.status === 'approved').length;\nconst published = workflowData.filter(w => w.status === 'published').length;\n\n// Contar publicacoes de hoje\nconst today = new Date().toISOString().split('T')[0];\nconst wpToday = publishedData.filter(p => p.platform === 'wordpress' && p.published_at && p.published_at.startsWith(today)).length;\nconst twitterToday = publishedData.filter(p => p.platform === 'twitter' && p.published_at && p.published_at.startsWith(today)).length;\nconst linkedinToday = publishedData.filter(p => p.platform === 'linkedin' && p.published_at && p.published_at.startsWith(today)).length;\n\nconst message = `📊 *STATUS DO BLOG SYSTEM*\\n━━━━━━━━━━━━━━━━━━━━━\\n\\n📥 *Fontes de Dados:*\\n   • RSS Feeds: ✅ Ativo\\n   • Telegram Input: ✅ Ativo\\n\\n📝 *Fila de Conteúdo:*\\n   • Rascunhos: ${drafts} artigos\\n   • Em revisão: ${pendingReview} artigo(s)\\n   • Aprovados: ${approved}\\n   • Publicados: ${published}\\n\\n📤 *Publicações Hoje:*\\n   • WordPress: ${wpToday} posts\\n   • Twitter: ${twitterToday} threads\\n   • LinkedIn: ${linkedinToday} posts\\n\\n⚙️ *Comandos:*\\n/queue - Ver fila detalhada\\n/stats - Estatísticas da semana`;\n\nreturn [{ json: { message, parse_mode: 'Markdown' } }];"
+      },
+      "id": "format-status",
+      "name": "FORMATAR STATUS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "8375309778",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "send-status",
+      "name": "ENVIAR STATUS",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1168,
+        -144
+      ],
+      "webhookId": "27b52f7a-5155-4a4c-a852-39302cab2e4b",
+      "credentials": {
+        "telegramApi": {
+          "id": "wuMTVqE3TWH1tFbK",
+          "name": "MktStatus Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "vw_blog_drafts",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "draft"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "pending_review"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "approved"
+            }
+          ]
+        }
+      },
+      "id": "query-queue",
+      "name": "QUERY FILA",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        512,
+        64
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar mensagem de /queue\n\nconst items = $input.all().map(i => i.json);\nconst filtered = items.filter(i => ['draft', 'pending_review', 'approved'].includes(i.status));\n\nif (filtered.length === 0) {\n  return [{ json: { message: '📭 *FILA VAZIA*\\n\\nNenhum artigo na fila de processamento.', parse_mode: 'Markdown' } }];\n}\n\nconst drafts = filtered.filter(i => i.status === 'draft');\nconst pending = filtered.filter(i => i.status === 'pending_review');\nconst approved = filtered.filter(i => i.status === 'approved');\n\nconst formatItem = (item, index) => {\n  const title = item.title ? item.title.substring(0, 40) + (item.title.length > 40 ? '...' : '') : 'Sem título';\n  return `   ${index + 1}. ${title}`;\n};\n\nlet message = '📋 *FILA DE CONTEÚDO*\\n━━━━━━━━━━━━━━━━━━━━━\\n\\n';\n\nif (drafts.length > 0) {\n  message += `📝 *Rascunhos (${drafts.length}):*\\n`;\n  message += drafts.slice(0, 5).map((d, i) => formatItem(d, i)).join('\\n');\n  if (drafts.length > 5) message += `\\n   _... e mais ${drafts.length - 5}_`;\n  message += '\\n\\n';\n}\n\nif (pending.length > 0) {\n  message += `⏳ *Em Revisão (${pending.length}):*\\n`;\n  message += pending.slice(0, 5).map((d, i) => formatItem(d, i)).join('\\n');\n  message += '\\n\\n';\n}\n\nif (approved.length > 0) {\n  message += `✅ *Aprovados (${approved.length}):*\\n`;\n  message += approved.slice(0, 5).map((d, i) => formatItem(d, i)).join('\\n');\n}\n\nreturn [{ json: { message: message.trim(), parse_mode: 'Markdown' } }];"
+      },
+      "id": "format-queue",
+      "name": "FORMATAR FILA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "8375309778",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "send-queue",
+      "name": "ENVIAR FILA",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        944,
+        64
+      ],
+      "webhookId": "932bd98d-4a18-44ec-90cb-fc03f4cd4475",
+      "credentials": {
+        "telegramApi": {
+          "id": "wuMTVqE3TWH1tFbK",
+          "name": "MktStatus Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "published_content",
+        "limit": 500,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "published_at",
+              "condition": "gte",
+              "keyValue": "={{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "query-stats",
+      "name": "QUERY STATS",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        512,
+        256
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar mensagem de /stats\n\nconst items = $input.all().map(i => i.json);\n\nconst now = new Date();\nconst weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\n\nconst weekItems = items.filter(i => {\n  if (!i.published_at) return false;\n  const pubDate = new Date(i.published_at);\n  return pubDate >= weekAgo;\n});\n\nconst wpCount = weekItems.filter(i => i.platform === 'wordpress').length;\nconst twitterCount = weekItems.filter(i => i.platform === 'twitter').length;\nconst linkedinCount = weekItems.filter(i => i.platform === 'linkedin').length;\nconst totalWeek = weekItems.length;\nconst totalAll = items.length;\nconst avgDaily = (totalWeek / 7).toFixed(1);\n\nconst startDate = weekAgo.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });\nconst endDate = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });\n\nconst message = `📈 *ESTATÍSTICAS DA SEMANA*\\n━━━━━━━━━━━━━━━━━━━━━\\n📅 Período: ${startDate} - ${endDate}\\n\\n📤 *Publicações (7 dias):*\\n   • WordPress: ${wpCount} posts\\n   • Twitter: ${twitterCount} threads\\n   • LinkedIn: ${linkedinCount} posts\\n   • *Total:* ${totalWeek}\\n\\n📊 *Métricas:*\\n   • Média diária: ${avgDaily} posts/dia\\n   • Total histórico: ${totalAll} publicações\\n\\n💡 _Use /status para ver a fila atual_`;\n\nreturn [{ json: { message, parse_mode: 'Markdown' } }];"
+      },
+      "id": "format-stats",
+      "name": "FORMATAR STATS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "8375309778",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "send-stats",
+      "name": "ENVIAR STATS",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        944,
+        256
+      ],
+      "webhookId": "0475dbbf-1904-47bb-b965-ad821cc0863a",
+      "credentials": {
+        "telegramApi": {
+          "id": "wuMTVqE3TWH1tFbK",
+          "name": "MktStatus Bot"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "TRIGGER COMANDOS": {
+      "main": [
+        [
+          {
+            "node": "QUAL COMANDO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUAL COMANDO?": {
+      "main": [
+        [
+          {
+            "node": "QUERY STATUS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "QUERY FILA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "QUERY STATS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUERY STATUS": {
+      "main": [
+        [
+          {
+            "node": "QUERY PUBLICADOS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUERY PUBLICADOS": {
+      "main": [
+        [
+          {
+            "node": "FORMATAR STATUS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FORMATAR STATUS": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR STATUS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUERY FILA": {
+      "main": [
+        [
+          {
+            "node": "FORMATAR FILA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FORMATAR FILA": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR FILA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUERY STATS": {
+      "main": [
+        [
+          {
+            "node": "FORMATAR STATS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FORMATAR STATS": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR STATS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "d23a69d4-928d-4b3c-aae0-71f18a0fafff",
+  "meta": {
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "qOtYC2eCKW7VHK9M",
+  "tags": []
+}

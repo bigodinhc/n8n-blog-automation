@@ -1,0 +1,632 @@
+{
+  "name": "[BLOG] 6 IMAGE GENERATOR + PREVIEW",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trigger-exec-wf",
+      "name": "TRIGGER PUBLICACAO",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        -288,
+        -400
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "vw_blog_drafts",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "approved"
+            }
+          ]
+        }
+      },
+      "id": "buscar-aprovados",
+      "name": "BUSCAR POSTS APROVADOS",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        -64,
+        -400
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-tem-posts",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $json.id }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "tem-posts",
+      "name": "TEM POSTS?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        160,
+        -400
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "PROCESSAR UM POR UM",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        384,
+        -416
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {},
+      "id": "no-op-done",
+      "name": "No Operation, do nothing",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        608,
+        -560
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "nenhum-post",
+      "name": "NENHUM POST APROVADO",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        352,
+        -144
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "const post = $json;\nconst WP_CATEGORIES = {'Breaking News': 1, 'Iron Ore News': 163, 'Steel News': 175, 'Metals News': 176};\nconst WP_TAGS = {'iron-ore': 165, 'iodex': 166, 'china': 167, 'brazil-miners': 168, 'global-miners': 169, 'freight': 170, 'steel': 171, 'market-analysis': 172, 'price-alert': 173, 'weekly-report': 174};\nlet cleanHtml = post.content_html || '';\ncleanHtml = cleanHtml.replace(/<div class=\"post-metadata\">[\\s\\S]*?<\\/div>/gi, '').trim();\nconst wpCategoryNames = [];\nconst dbCategories = Array.isArray(post.categories) ? post.categories : [];\nif (post.tier === 'TIER_1') wpCategoryNames.push('Breaking News');\ndbCategories.forEach(cat => { const catLower = cat.toLowerCase(); if (catLower.includes('china') || catLower.includes('demanda') || catLower.includes('preco') || catLower.includes('spot')) { if (!wpCategoryNames.includes('Iron Ore News')) wpCategoryNames.push('Iron Ore News'); } if (catLower.includes('siderur') || catLower.includes('steel') || catLower.includes('aco')) { if (!wpCategoryNames.includes('Steel News')) wpCategoryNames.push('Steel News'); } });\nif (wpCategoryNames.length === 0) wpCategoryNames.push('Iron Ore News');\nconst wpCategoryIds = wpCategoryNames.map(name => WP_CATEGORIES[name]).filter(id => id);\nconst wpTagSlugs = [];\nconst dbTags = Array.isArray(post.tags) ? post.tags : [];\ndbTags.forEach(tag => { const tagLower = tag.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9-]/g, ''); if (tagLower.includes('minerio') || tagLower.includes('iron')) { if (!wpTagSlugs.includes('iron-ore')) wpTagSlugs.push('iron-ore'); } if (tagLower.includes('iodex') || tagLower.includes('platts')) { if (!wpTagSlugs.includes('iodex')) wpTagSlugs.push('iodex'); } if (tagLower.includes('china')) { if (!wpTagSlugs.includes('china')) wpTagSlugs.push('china'); } if (tagLower.includes('vale') || tagLower.includes('csn')) { if (!wpTagSlugs.includes('brazil-miners')) wpTagSlugs.push('brazil-miners'); } if (tagLower.includes('bhp') || tagLower.includes('rio')) { if (!wpTagSlugs.includes('global-miners')) wpTagSlugs.push('global-miners'); } });\nif (wpTagSlugs.length === 0) wpTagSlugs.push('iron-ore');\nconst wpTagIds = wpTagSlugs.map(slug => WP_TAGS[slug]).filter(id => id);\nconst slug = post.slug || post.title.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50);\nreturn { wp_title: post.title, wp_content: cleanHtml, wp_slug: slug, wp_excerpt: post.excerpt || '', wp_categories: wpCategoryIds, wp_tags: wpTagIds, wp_category_names: wpCategoryNames, wp_tag_slugs: wpTagSlugs, post_id: post.id, original_title: post.title, original_content: cleanHtml, tier: post.tier };"
+      },
+      "id": "preparar-wp",
+      "name": "PREPARAR DADOS POST",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        608,
+        -400
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=ARTICLE TITLE: {{ $json.wp_title }}\n\nARTICLE CONTENT:\n{{ $json.original_content.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').substring(0, 1000) }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a world-class AI Art Director specializing in financial news and commodities markets. Your task is to generate a deeply descriptive, high-end image prompt for an image generator (Flux/SDXL based) based on the provided news snippet.\n\nINPUT ANALYSIS:\nRead the news provided. Identify three factors:\n1. SENTIMENT: Bullish (prices up/optimism), Bearish (prices down/worry), or Neutral (operational updates).\n2. TOPIC: Market/Finance, Geopolitics/Trade, or Physical Mining/Logistics.\n3. LOCATION: Is a specific country mentioned (China, Brazil, Australia)?\n\nVISUAL STRATEGY (Choose one based on TOPIC):\n\nA) IF MARKET/FINANCE NEWS (Price hikes, inflation, futures):\n   - Concept: Use visual metaphors. A bull made of rough iron ore rocks charging forward; A mountain of iron ore shaped like an upward trending graph; Golden coins mixing with raw red earth.\n   - Atmosphere: If Bullish = Golden Hour, shiny, low-angle (heroic). If Bearish = Stormy, cold blue/grey lighting, isolated machinery.\n\nB) IF GEOPOLITICS/CHINA/MACRO (Stimulus, import quotas, trade deals):\n   - Concept: Massive scale trade. Cargo ships navigating through a sea that looks like a map.\n   - Geography Cues: If China is involved, include subtle silhouettes of pagodas in the industrial background, red atmospheric haze, or busy Asian port megastructures. If Brazil, lush tropical vegetation surrounding the red mine pits.\n   - Composition: Wide, epic shots showing the connection between nature and global trade.\n\nC) IF PHYSICAL MINING (Production reports, new mines, accidents):\n   - Concept: Raw power. Close-ups of textures.\n   - Action: Excavators, conveyor belts, explosions (controlled).\n   - Detail: Focus on the contrast between the metallic steel of machines and the deep red/rust color of the ore.\n\nMANDATORY ARTISTIC GUIDELINES:\n- STYLE: Cinematic, Hyper-realistic, Editorial, 8k resolution, Unreal Engine 5 render style.\n- NO HUMAN FACES. Use silhouettes of workers, gloved hands shaking, or helmets, but NEVER a recognizable face.\n- COLORS: Vivid and dramatic. Deep Iron Red, Industrial Orange, Steel Blue, Money Green (for profits).\n- LIGHTING: Volumetric lighting, dust particles, dramatic shadows.\n\nOUTPUT FORMAT:\nReturn ONLY the prompt string in English. No explanations. The prompt must be descriptive, vivid, and imply the story of the news without text.\n\nEXAMPLE STRUCTURE:\n\"[Subject/Metaphor] in a [Setting/Location], [Action/Details], [Lighting/Atmosphere], [Camera Angle/Style] --ar 16:9\""
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "ai-gerar-prompt",
+      "name": "AI GERAR PROMPT IMAGEM",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        768,
+        -400
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.1",
+          "mode": "list",
+          "cachedResultName": "gpt-5.1"
+        },
+        "options": {
+          "maxTokens": 4000
+        }
+      },
+      "id": "openai-model",
+      "name": "OpenAI GPT-4.1-mini",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [
+        688,
+        -160
+      ],
+      "typeVersion": 1.2,
+      "credentials": {
+        "openAiApi": {
+          "id": "TlBHX33f0SZpyHLo",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $json;\nconst prepData = $('PREPARAR DADOS POST').item.json;\nconst imagePrompt = aiResponse.text || aiResponse.output || aiResponse.response || '';\nconst timestamp = Date.now();\nconst imageFilename = prepData.wp_title.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9\\s-]/g, '').replace(/\\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 50) + '-' + timestamp + '.png';\nconst storagePath = `editorial/${prepData.post_id}/${imageFilename}`;\nreturn { ...prepData, image_prompt: imagePrompt, image_filename: imageFilename, storage_path: storagePath, image_alt_text: prepData.wp_title };"
+      },
+      "id": "preparar-prompt-gemini",
+      "name": "PREPARAR PROMPT GEMINI",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1088,
+        -400
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3-pro-image-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3-pro-image-preview (Nano Banana Pro)"
+        },
+        "prompt": "={{ $json.image_prompt }}",
+        "options": {
+          "binaryPropertyOutput": "editorial_image"
+        }
+      },
+      "id": "gerar-imagem-gemini",
+      "name": "GERAR IMAGEM GEMINI",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "position": [
+        1280,
+        -400
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "VStJZ2Am1t3kqbKB",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://pbhvhfahcvgmgjvuhwuk.supabase.co/storage/v1/object/social-images/{{ $('PREPARAR PROMPT GEMINI').item.json.storage_path }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "image/png"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiaHZoZmFoY3ZnbWdqdnVod3VrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjMzMTYwNywiZXhwIjoyMDc3OTA3NjA3fQ.GB86JqMN-NKCePxNToYlKlbFB98BSNAbhXa1dFtidIw"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "editorial_image",
+        "options": {}
+      },
+      "id": "upload-supabase",
+      "name": "UPLOAD SUPABASE STORAGE",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1504,
+        -400
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const prepData = $('PREPARAR PROMPT GEMINI').item.json;\nconst imageUrl = `https://pbhvhfahcvgmgjvuhwuk.supabase.co/storage/v1/object/public/social-images/${prepData.storage_path}`;\nreturn { ...prepData, image_url: imageUrl };"
+      },
+      "id": "construir-url-imagem",
+      "name": "CONSTRUIR URL IMAGEM",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1728,
+        -400
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "tableId": "post_images",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "post_id",
+              "fieldValue": "={{ $json.post_id }}"
+            },
+            {
+              "fieldId": "platform",
+              "fieldValue": "editorial"
+            },
+            {
+              "fieldId": "image_url",
+              "fieldValue": "={{ $json.image_url }}"
+            },
+            {
+              "fieldId": "image_prompt",
+              "fieldValue": "={{ $json.image_prompt }}"
+            },
+            {
+              "fieldId": "storage_location",
+              "fieldValue": "supabase_storage"
+            },
+            {
+              "fieldId": "storage_path",
+              "fieldValue": "={{ $json.storage_path }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending"
+            }
+          ]
+        }
+      },
+      "id": "salvar-post-images",
+      "name": "SALVAR EM POST_IMAGES",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1952,
+        -400
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('CONSTRUIR URL IMAGEM').item.json;\nconst imageRecord = $json;\nconst excerpt = data.original_content.replace(/<[^>]*>/g, '').replace(/\\s+/g, ' ').trim().substring(0, 200) + '...';\nconst caption = `🖼 *PREVIEW - APROVAR IMAGEM*\\n━━━━━━━━━━━━━━━━━━━━━\\n\\n📝 *${data.wp_title}*\\n\\n📄 ${excerpt}\\n\\n📁 Categorias: ${data.wp_category_names.join(', ')}\\n🏷 Tags: ${data.wp_tag_slugs.join(', ')}\\n\\n━━━━━━━━━━━━━━━━━━━━━\\n⏳ Aguardando aprovação da imagem`;\nconst inlineKeyboard = { inline_keyboard: [[{ text: '✅ Publicar', callback_data: `publish_${data.post_id}` }, { text: '🔄 Nova Imagem', callback_data: `regen_${data.post_id}` }], [{ text: '❌ Cancelar', callback_data: `cancel_${data.post_id}` }]] };\nreturn { chat_id: '8375309778', photo_url: data.image_url, caption: caption, parse_mode: 'Markdown', reply_markup: JSON.stringify(inlineKeyboard), post_id: data.post_id, image_record_id: imageRecord.id };"
+      },
+      "id": "preparar-preview-telegram",
+      "name": "PREPARAR PREVIEW TELEGRAM",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2176,
+        -400
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8038861116:AAFqHOnzxIxteB4t73Ya9QO9MPW_y8HzCaQ/sendPhoto",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}"
+            },
+            {
+              "name": "photo",
+              "value": "={{ $json.photo_url }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json.caption }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "={{ $json.parse_mode }}"
+            },
+            {
+              "name": "reply_markup",
+              "value": "={{ $json.reply_markup }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "enviar-preview-telegram",
+      "name": "ENVIAR PREVIEW TELEGRAM",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2400,
+        -400
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PREPARAR PREVIEW TELEGRAM').item.json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "awaiting_image_approval"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-status-awaiting",
+      "name": "ATUALIZAR STATUS AWAITING",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        2624,
+        -400
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "verificar-mais",
+      "name": "VERIFICAR MAIS POSTS",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        2848,
+        -400
+      ],
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "TRIGGER PUBLICACAO": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR POSTS APROVADOS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR POSTS APROVADOS": {
+      "main": [
+        [
+          {
+            "node": "TEM POSTS?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEM POSTS?": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR UM POR UM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NENHUM POST APROVADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR UM POR UM": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PREPARAR DADOS POST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR DADOS POST": {
+      "main": [
+        [
+          {
+            "node": "AI GERAR PROMPT IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI GERAR PROMPT IMAGEM": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR PROMPT GEMINI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-4.1-mini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI GERAR PROMPT IMAGEM",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR PROMPT GEMINI": {
+      "main": [
+        [
+          {
+            "node": "GERAR IMAGEM GEMINI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GERAR IMAGEM GEMINI": {
+      "main": [
+        [
+          {
+            "node": "UPLOAD SUPABASE STORAGE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPLOAD SUPABASE STORAGE": {
+      "main": [
+        [
+          {
+            "node": "CONSTRUIR URL IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONSTRUIR URL IMAGEM": {
+      "main": [
+        [
+          {
+            "node": "SALVAR EM POST_IMAGES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SALVAR EM POST_IMAGES": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR PREVIEW TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR PREVIEW TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR PREVIEW TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR PREVIEW TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR STATUS AWAITING",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR STATUS AWAITING": {
+      "main": [
+        [
+          {
+            "node": "VERIFICAR MAIS POSTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VERIFICAR MAIS POSTS": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR UM POR UM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "476897d7-b193-45eb-bb12-df535527b997",
+  "meta": {
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "yr7VUG1VMi8o8fi9",
+  "tags": []
+}

@@ -1,0 +1,938 @@
+{
+  "name": "[BLOG] 7 SOCIAL MEDIA FACTORY",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"post_id\": \"uuid-example\",\n  \"title\": \"Titulo do artigo\",\n  \"content\": \"Conteudo HTML do artigo\",\n  \"wordpress_url\": \"https://mineralstradingdaily.com.br/example\",\n  \"categories\": \"Breaking News\",\n  \"tags\": \"iron-ore, china\"\n}"
+      },
+      "id": "trigger-social",
+      "name": "TRIGGER SOCIAL MEDIA",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        0,
+        -656
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "post_id",
+              "name": "post_id",
+              "type": "string",
+              "value": "={{ $json.post_id }}"
+            },
+            {
+              "id": "title",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "id": "content",
+              "name": "content",
+              "type": "string",
+              "value": "={{ $json.content }}"
+            },
+            {
+              "id": "wordpress_url",
+              "name": "wordpress_url",
+              "type": "string",
+              "value": "={{ $json.wordpress_url }}"
+            },
+            {
+              "id": "categories",
+              "name": "categories",
+              "type": "string",
+              "value": "={{ $json.categories }}"
+            },
+            {
+              "id": "tags",
+              "name": "tags",
+              "type": "string",
+              "value": "={{ $json.tags }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-data",
+      "name": "EXTRAIR DADOS POST",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        224,
+        -656
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Crie uma THREAD DE 4 TWEETS sobre esta noticia de minerio de ferro.\n\n━━━━━━━━━━━━━━━━━━━━━\n📰 DADOS DO ARTIGO\n━━━━━━━━━━━━━━━━━━━━━\n\n**Titulo:** {{ $json.title }}\n**URL para CTA:** {{ $json.wordpress_url }}\n**Conteudo completo:**\n{{ $json.content }}\n\n━━━━━━━━━━━━━━━━━━━━━\n📝 ESTRUTURA OBRIGATORIA\n━━━━━━━━━━━━━━━━━━━━━\n\n**TWEET 1 - HOOK (max 270 chars)**\nFormula: 🚨 + CONTRADICAO ou NUMERO CHOCANTE\n- Pare o scroll com algo inesperado\n- Use numeros especificos ($104.75, nao \"cerca de $100\")\n- Crie tensao ou curiosidade\n- SEM LINK neste tweet\n\n**TWEET 2 - CONTEXTO (max 280 chars)**\nFormula: \"O motivo?\" ou \"Por que?\" + explicacao clara\n- Responda o \"porque\" do hook\n- Conecte causa e efeito\n- SEM LINK neste tweet\n\n**TWEET 3 - BRASIL (max 280 chars)**\nFormula: 🇧🇷 + Impacto direto + players locais\n- Mencione Vale, CSN, ou exportadores brasileiros\n- Traduza para realidade do trader BR\n- SEM LINK neste tweet\n\n**TWEET 4 - CTA (max 250 chars)**\nFormula: 📊 + Teaser curto + URL + 5 hashtags\n- Crie urgencia sutil\n- INCLUA a URL do artigo\n- Hashtags: #IronOre #Commodities #Vale #China #Mining\n\n━━━━━━━━━━━━━━━━━━━━━\n⚠️ REGRAS CRITICAS\n━━━━━━━━━━━━━━━━━━━━━\n\n✅ Emojis estrategicos no inicio (🚨📉🇧🇷📊)\n✅ Frases curtas e punchy\n✅ Crie tensao entre tweets (cliffhanger)\n✅ Numeros EXATOS da fonte (nao arredonde)\n❌ NAO seja generico (\"mercado volatil\")\n❌ NAO repita informacao entre tweets\n❌ NAO use mais de 280 chars por tweet\n\n━━━━━━━━━━━━━━━━━━━━━\n📤 OUTPUT JSON\n━━━━━━━━━━━━━━━━━━━━━\n\nRetorne APENAS este JSON valido, sem explicacoes:\n\n{\"tweet1_hook\": \"texto do tweet 1 com emoji\", \"tweet2_contexto\": \"texto do tweet 2\", \"tweet3_brasil\": \"texto do tweet 3 com emoji BR\", \"tweet4_cta\": \"texto do tweet 4 com link e hashtags\"}",
+        "options": {
+          "systemMessage": "Voce e o social media manager da Bloomberg Commodities Brasil no Twitter/X.\n\nSEU OBJETIVO: Maximo engajamento com traders, analistas e profissionais do mercado de minerio de ferro.\n\nSUA EXPERTISE:\n- 8 anos gerenciando contas de commodities no Twitter\n- Conhecimento profundo do mercado de minerio de ferro\n- Dominio de copywriting para redes sociais\n- Fluencia em portugues BR com termos tecnicos do setor\n\nSEU ESTILO:\n- Tom: Informativo mas com edge (voce sabe algo que os outros nao sabem)\n- Linguagem: Direta, sem rodeios, frases curtas\n- Numeros: Sempre especificos, nunca arredondados\n- Emojis: Estrategicos, no inicio dos tweets para chamar atencao\n\nTECNICAS QUE VOCE USA:\n1. HOOK com contradicao ou numero surpreendente\n2. Cliffhanger entre tweets para manter leitura\n3. Contexto Brasil para conectar com audiencia local\n4. CTA com urgencia sutil (\"antes do mercado abrir\")\n\nEXEMPLOS DE HOOKS QUE VOCE ESCREVERIA:\n- \"🚨 Paradoxo: precos SOBEM enquanto demanda chinesa CAI 21%\"\n- \"🚨 $0.45 podem nao parecer muito... mas e a 5a alta consecutiva\"\n- \"🚨 Vale lucra $2.3bi enquanto concorrentes sangram. O segredo?\"\n- \"🚨 Minerio a $105 e TODO MUNDO errou a previsao. Entenda:\"\n\nREGRA ABSOLUTA: Responda SOMENTE com JSON puro. Sem ```json```, sem explicacoes, sem texto antes ou depois. Sua resposta comeca com { e termina com }."
+        }
+      },
+      "id": "ai-twitter",
+      "name": "AI TWITTER",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        448,
+        -800
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-20250514",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4"
+        },
+        "options": {
+          "maxTokensToSample": 6000,
+          "thinking": true
+        }
+      },
+      "id": "lm-twitter",
+      "name": "LM Twitter",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "position": [
+        928,
+        -608
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "anthropicApi": {
+          "id": "fjN5QtG5xAcoiOWE",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// PARSEAR TWITTER - Valida e extrai JSON do agent\nconst input = $('EXTRAIR DADOS POST').first().json;\nconst raw = $input.first().json.output;\n\nfunction parseJSON(str) {\n  if (!str) return null;\n  let s = String(str).replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const match = s.match(/\\{[\\s\\S]*\\}/);\n  if (match) s = match[0];\n  s = s.replace(/,\\s*#/g, ', \"#').replace(/\\[\\s*#/g, '[\"#').replace(/#([\\w]+)([,\\]])/g, '\"#$1\"$2');\n  try { return JSON.parse(s); } catch (e) { return null; }\n}\n\nconst twitter = parseJSON(raw);\nif (!twitter || !twitter.tweet1_hook) {\n  throw new Error('Twitter: JSON invalido ou incompleto');\n}\n\nreturn {\n  json: {\n    ...input,\n    twitter: twitter\n  }\n};"
+      },
+      "id": "parse-twitter",
+      "name": "PARSEAR TWITTER",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        864,
+        -800
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Crie um post de LinkedIn sobre este artigo de minerio de ferro.\n\n**Titulo:** {{ $('PARSEAR TWITTER').first().json.title }}\n**URL:** {{ $('PARSEAR TWITTER').first().json.wordpress_url }}\n**Conteudo:**\n{{ $('PARSEAR TWITTER').first().json.content }}\n\n## ESTRUTURA:\n- Linha 1: Hook (pergunta ou dado impactante)\n- Corpo: 3-4 paragrafos curtos com quebras de linha\n- Final: CTA + URL do artigo\n- Hashtags: 4-5 hashtags\n\n## REGRAS: Max 1300 chars. Quebre linhas. Max 2 emojis. Tom profissional. Portugues BR.\n\nResponda APENAS com JSON valido:\n{\"post\": \"texto completo\", \"hashtags\": [\"#H1\", \"#H2\", \"#H3\", \"#H4\"]}",
+        "options": {
+          "systemMessage": "Voce e copywriter de LinkedIn. Responda SOMENTE com JSON puro, sem ```json``` ou explicacoes."
+        }
+      },
+      "id": "ai-linkedin",
+      "name": "AI LINKEDIN",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        1152,
+        -800
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "jsCode": "// PARSEAR LINKEDIN - Valida e extrai JSON do agent\n// Busca dados acumulados do PARSEAR TWITTER (nao do $input que e so output do agent)\nconst prev = $('PARSEAR TWITTER').first().json;\nconst raw = $('AI LINKEDIN').first().json.output;\n\nfunction parseJSON(str) {\n  if (!str) return null;\n  let s = String(str).replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const match = s.match(/\\{[\\s\\S]*\\}/);\n  if (match) s = match[0];\n  s = s.replace(/,\\s*#/g, ', \"#').replace(/\\[\\s*#/g, '[\"#').replace(/#([\\w]+)([,\\]])/g, '\"#$1\"$2');\n  try { return JSON.parse(s); } catch (e) { return null; }\n}\n\nconst linkedin = parseJSON(raw);\nif (!linkedin || !linkedin.post) {\n  throw new Error('LinkedIn: JSON invalido ou incompleto');\n}\n\nreturn {\n  json: {\n    ...prev,\n    linkedin: linkedin\n  }\n};"
+      },
+      "id": "parse-linkedin",
+      "name": "PARSEAR LINKEDIN",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1504,
+        -800
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Crie uma caption de Instagram sobre este artigo de minerio de ferro.\n\n**Titulo:** {{ $('PARSEAR LINKEDIN').first().json.title }}\n**URL:** {{ $('PARSEAR LINKEDIN').first().json.wordpress_url }}\n**Conteudo:**\n{{ $('PARSEAR LINKEDIN').first().json.content }}\n\n## ESTRUTURA:\n- Linha 1: Hook com emoji forte\n- Corpo: 4-5 linhas com emojis como marcadores\n- CTA: \"Salve esse post\" ou \"Link na bio\"\n- Hashtags: 15-20 hashtags relevantes\n\n## REGRAS: Max 800 chars (sem hashtags). Emojis estrategicos. Portugues BR.\n\nResponda APENAS com JSON valido:\n{\"caption\": \"texto com emojis\", \"hashtags\": [\"#h1\", \"#h2\", \"...\"]}",
+        "options": {
+          "systemMessage": "Voce e copywriter de Instagram. Responda SOMENTE com JSON puro, sem ```json``` ou explicacoes."
+        }
+      },
+      "id": "ai-instagram",
+      "name": "AI INSTAGRAM",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        1728,
+        -800
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "jsCode": "// PARSEAR INSTAGRAM - Valida e extrai JSON do agent\n// Busca dados acumulados do PARSEAR LINKEDIN (nao do $input que e so output do agent)\nconst prev = $('PARSEAR LINKEDIN').first().json;\nconst raw = $('AI INSTAGRAM').first().json.output;\n\nfunction parseJSON(str) {\n  if (!str) return null;\n  let s = String(str).replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const match = s.match(/\\{[\\s\\S]*\\}/);\n  if (match) s = match[0];\n  s = s.replace(/,\\s*#/g, ', \"#').replace(/\\[\\s*#/g, '[\"#').replace(/#([\\w]+)([,\\]])/g, '\"#$1\"$2');\n  try { return JSON.parse(s); } catch (e) { return null; }\n}\n\nconst instagram = parseJSON(raw);\nif (!instagram || !instagram.caption) {\n  throw new Error('Instagram: JSON invalido ou incompleto');\n}\n\nreturn {\n  json: {\n    ...prev,\n    instagram: instagram\n  }\n};"
+      },
+      "id": "parse-instagram",
+      "name": "PARSEAR INSTAGRAM",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2080,
+        -800
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// PREPARAR PREVIEW - Combina dados do Merge\nconst allItems = $input.all();\n\nlet socialData = null;\nlet imageData = null;\n\nfor (const item of allItems) {\n  if (item.json.twitter && item.json.linkedin && item.json.instagram) {\n    socialData = item.json;\n  }\n  if (item.json.twitter_image_url) {\n    imageData = item.json;\n  }\n}\n\nif (!socialData) {\n  socialData = $('PARSEAR INSTAGRAM').first().json;\n}\n\nconst sessionId = $execution.id;\nconst chatId = '8375309778';\n\nconst truncate = (text, max) => text && text.length > max ? text.substring(0, max-3) + '...' : (text || '');\n\nconst twitterImageUrl = imageData ? imageData.twitter_image_url : null;\n\n// Caption da imagem (curta)\nconst imageCaption = `🖼 *IMAGEM TWITTER*\\n\\n📰 ${truncate(socialData.title, 60)}\\n\\n_Aprove a imagem ou solicite uma nova._`;\n\n// Botoes da imagem\nconst imageReplyMarkup = {\n  inline_keyboard: [\n    [{ text: '✅ Aprovar Imagem', callback_data: `img_approve_${sessionId}` }],\n    [{ text: '🔄 Refazer Imagem', callback_data: `img_redo_${sessionId}` }],\n    [{ text: '❌ Cancelar Tudo', callback_data: `img_cancel_${sessionId}` }]\n  ]\n};\n\n// Preview completo do conteudo (texto)\nconst preview = `📱 *PREVIEW REDES SOCIAIS*\\n━━━━━━━━━━━━━━━━━━━━━\\n\\n📰 *Post:* ${truncate(socialData.title, 80)}\\n🔗 ${socialData.wordpress_url}\\n\\n━━━━━━━━━━━━━━━━━━━━━\\n🐦 *TWITTER/X (Thread 4 tweets):*\\n\\n1️⃣ ${socialData.twitter.tweet1_hook}\\n\\n2️⃣ ${socialData.twitter.tweet2_contexto}\\n\\n3️⃣ ${socialData.twitter.tweet3_brasil}\\n\\n4️⃣ ${socialData.twitter.tweet4_cta}\\n\\n━━━━━━━━━━━━━━━━━━━━━\\n💼 *LINKEDIN:*\\n\\n${truncate(socialData.linkedin.post, 800)}\\n\\n━━━━━━━━━━━━━━━━━━━━━\\n📸 *INSTAGRAM:*\\n\\n${truncate(socialData.instagram.caption, 600)}\\n\\n━━━━━━━━━━━━━━━━━━━━━`;\n\n// Botoes do conteudo (aparecem depois de aprovar imagem)\nconst contentReplyMarkup = {\n  inline_keyboard: [\n    [{ text: '✅ PUBLICAR TODAS', callback_data: `social_all_${sessionId}` }],\n    [{ text: '🐦 Só Twitter', callback_data: `social_twitter_${sessionId}` }, { text: '💼 Só LinkedIn', callback_data: `social_linkedin_${sessionId}` }],\n    [{ text: '📸 Só Instagram', callback_data: `social_instagram_${sessionId}` }, { text: '❌ Cancelar', callback_data: `social_cancel_${sessionId}` }]\n  ]\n};\n\nreturn {\n  json: {\n    chat_id: chatId,\n    // Dados da imagem\n    twitter_image_url: twitterImageUrl,\n    image_caption: imageCaption,\n    image_reply_markup: imageReplyMarkup,\n    // Dados do preview texto\n    text: preview,\n    parse_mode: 'Markdown',\n    reply_markup: contentReplyMarkup,\n    // Dados gerais\n    post_id: socialData.post_id,\n    title: socialData.title,\n    wordpress_url: socialData.wordpress_url,\n    social_content: {\n      twitter: socialData.twitter,\n      linkedin: socialData.linkedin,\n      instagram: socialData.instagram\n    },\n    session_id: sessionId\n  }\n};"
+      },
+      "id": "prepare-preview",
+      "name": "PREPARAR PREVIEW",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2528,
+        -656
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "tableId": "social_media_sessions",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "session_id",
+              "fieldValue": "={{ $json.session_id }}"
+            },
+            {
+              "fieldId": "post_id",
+              "fieldValue": "={{ $json.post_id }}"
+            },
+            {
+              "fieldId": "wordpress_url",
+              "fieldValue": "={{ $json.wordpress_url }}"
+            },
+            {
+              "fieldId": "twitter_content",
+              "fieldValue": "={{ JSON.stringify($json.social_content.twitter) }}"
+            },
+            {
+              "fieldId": "linkedin_content",
+              "fieldValue": "={{ JSON.stringify($json.social_content.linkedin) }}"
+            },
+            {
+              "fieldId": "instagram_content",
+              "fieldValue": "={{ JSON.stringify($json.social_content.instagram) }}"
+            },
+            {
+              "fieldId": "twitter_image_url",
+              "fieldValue": "={{ $json.twitter_image_url }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_approval"
+            }
+          ]
+        }
+      },
+      "id": "save-session",
+      "name": "SALVAR SESSAO SOCIAL",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        2960,
+        -560
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $('PREPARAR PREVIEW').first().json.chat_id, text: $('PREPARAR PREVIEW').first().json.text, parse_mode: $('PREPARAR PREVIEW').first().json.parse_mode, reply_markup: $('PREPARAR PREVIEW').first().json.reply_markup }) }}",
+        "options": {}
+      },
+      "id": "send-telegram",
+      "name": "ENVIAR TELEGRAM",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        3200,
+        -560
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "preview_sent"
+            },
+            {
+              "id": "session_id",
+              "name": "session_id",
+              "type": "string",
+              "value": "={{ $('PREPARAR PREVIEW').first().json.session_id }}"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "type": "string",
+              "value": "Preview enviado para aprovacao via Telegram"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "confirm-sent",
+      "name": "CONFIRMAR ENVIO",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        3424,
+        -560
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        1568,
+        -608
+      ],
+      "id": "e2471a57-24bd-417f-b894-586a15a18277",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=ARTICLE TITLE: {{ $json.title }}\n\nARTICLE SUMMARY:\n{{ $json.content.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').substring(0, 800) }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are an expert AI image prompt engineer for high-engagement Twitter/X posts about commodities and iron ore markets.\n\nGOAL: Create a BOLD, ATTENTION-GRABBING image prompt that makes people STOP scrolling.\n\nSTYLE REQUIREMENTS:\n1. HIGH IMPACT visual - dramatic angles, strong contrasts, dynamic composition\n2. Bold color palette: deep reds, industrial oranges, metallic silvers against dark backgrounds\n3. Cinematic lighting: dramatic shadows, golden hour, industrial atmospheres with dust/steam\n4. Energy and URGENCY in every element\n5. Works perfectly at Twitter preview size (1200x675px)\n\nSCENE IDEAS (choose based on context):\n- Massive haul trucks with dramatic dust clouds at sunset\n- Bulk carriers being loaded with dramatic spray of iron ore\n- Red ore cascading from conveyors with industrial backlighting\n- Giant stockpile yards with dramatic storm clouds approaching\n- Port terminals at night with industrial lighting\n- Close-up of raw iron ore chunks with dramatic macro lighting\n\nABSOLUTE RULES:\n- NO text, logos, charts, graphs, or data visualizations\n- NO human faces or recognizable people\n- NO abstract or conceptual imagery\n- ONLY real industrial photography style\n\nOUTPUT: Single English paragraph prompt (2-3 sentences), no explanations."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "ai-prompt-twitter-image",
+      "name": "AI PROMPT TWITTER IMAGE",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        800,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list"
+        },
+        "options": {
+          "maxTokens": 500
+        }
+      },
+      "id": "lm-twitter-image",
+      "name": "LM Twitter Image",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        -288
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "TlBHX33f0SZpyHLo",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// PREPARAR GEMINI TWITTER\nconst inputData = $('EXTRAIR DADOS POST').first().json;\nconst aiResponse = $json;\n\nconst imagePrompt = aiResponse.text || aiResponse.output || aiResponse.response || '';\n\nconst timestamp = Date.now();\nconst sanitizedTitle = inputData.title.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9\\s-]/g, '').replace(/\\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 40);\n\nconst imageFilename = `twitter-${sanitizedTitle}-${timestamp}.png`;\nconst storagePath = `twitter/${inputData.post_id}/${imageFilename}`;\n\nreturn { json: { post_id: inputData.post_id, title: inputData.title, twitter_image_prompt: imagePrompt, twitter_image_filename: imageFilename, twitter_storage_path: storagePath } };"
+      },
+      "id": "preparar-gemini-twitter",
+      "name": "PREPARAR GEMINI TWITTER",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3-pro-image-preview",
+          "mode": "list"
+        },
+        "prompt": "={{ $json.twitter_image_prompt }}",
+        "options": {
+          "binaryPropertyOutput": "twitter_image"
+        }
+      },
+      "id": "gerar-imagem-twitter",
+      "name": "GERAR IMAGEM TWITTER",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        -512
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "VStJZ2Am1t3kqbKB",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://pbhvhfahcvgmgjvuhwuk.supabase.co/storage/v1/object/social-images/{{ $('PREPARAR GEMINI TWITTER').first().json.twitter_storage_path }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "image/png"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiaHZoZmFoY3ZnbWdqdnVod3VrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjMzMTYwNywiZXhwIjoyMDc3OTA3NjA3fQ.GB86JqMN-NKCePxNToYlKlbFB98BSNAbhXa1dFtidIw"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "twitter_image",
+        "options": {}
+      },
+      "id": "upload-twitter-image",
+      "name": "UPLOAD TWITTER IMAGE",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1792,
+        -512
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// CONSTRUIR URL TWITTER\nconst prevData = $('PREPARAR GEMINI TWITTER').first().json;\nconst storagePath = prevData.twitter_storage_path;\n\nconst twitterImageUrl = `https://pbhvhfahcvgmgjvuhwuk.supabase.co/storage/v1/object/public/social-images/${storagePath}`;\n\nreturn { json: { post_id: prevData.post_id, title: prevData.title, twitter_image_url: twitterImageUrl, twitter_image_prompt: prevData.twitter_image_prompt } };"
+      },
+      "id": "construir-url-twitter",
+      "name": "CONSTRUIR URL TWITTER",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "merge-social-content",
+      "name": "MERGE CONTEUDO",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2304,
+        -656
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/sendPhoto",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $('PREPARAR PREVIEW').first().json.chat_id, photo: $('PREPARAR PREVIEW').first().json.twitter_image_url, caption: $('PREPARAR PREVIEW').first().json.image_caption, parse_mode: 'Markdown', reply_markup: $('PREPARAR PREVIEW').first().json.image_reply_markup }) }}",
+        "options": {}
+      },
+      "id": "enviar-imagem-telegram",
+      "name": "ENVIAR IMAGEM TELEGRAM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3184,
+        -752
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "social_media_sessions",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "session_id",
+              "fieldValue": "={{ $('PREPARAR PREVIEW').first().json.session_id }}"
+            },
+            {
+              "fieldId": "post_id",
+              "fieldValue": "={{ $('PREPARAR PREVIEW').first().json.post_id }}"
+            },
+            {
+              "fieldId": "wordpress_url",
+              "fieldValue": "={{ $('PREPARAR PREVIEW').first().json.wordpress_url }}"
+            },
+            {
+              "fieldId": "twitter_content",
+              "fieldValue": "={{ JSON.stringify($('PREPARAR PREVIEW').first().json.social_content.twitter) }}"
+            },
+            {
+              "fieldId": "linkedin_content",
+              "fieldValue": "={{ JSON.stringify($('PREPARAR PREVIEW').first().json.social_content.linkedin) }}"
+            },
+            {
+              "fieldId": "instagram_content",
+              "fieldValue": "={{ JSON.stringify($('PREPARAR PREVIEW').first().json.social_content.instagram) }}"
+            },
+            {
+              "fieldId": "twitter_image_url",
+              "fieldValue": "={{ $('PREPARAR PREVIEW').first().json.twitter_image_url }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_image_approval"
+            }
+          ]
+        }
+      },
+      "id": "salvar-sessao-imagem",
+      "name": "SALVAR SESSAO IMAGEM",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2960,
+        -752
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "image_preview_sent"
+            },
+            {
+              "id": "session_id",
+              "name": "session_id",
+              "type": "string",
+              "value": "={{ $('PREPARAR PREVIEW').first().json.session_id }}"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "type": "string",
+              "value": "Imagem enviada para aprovacao. Aguardando decisao do usuario."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "aguardar-imagem",
+      "name": "AGUARDAR APROVACAO IMAGEM",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3408,
+        -752
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8725dfb3-97b4-497b-9881-a52d2750c089",
+              "leftValue": "={{ $json.twitter_image_url }}",
+              "rightValue": "http",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2736,
+        -656
+      ],
+      "id": "7e8a488a-6eed-4dd1-8cb0-10a159cb471c",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI TWITTER": {
+      "main": [
+        [
+          {
+            "node": "PARSEAR TWITTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LM Twitter": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI TWITTER",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI LINKEDIN",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI INSTAGRAM",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI LINKEDIN": {
+      "main": [
+        [
+          {
+            "node": "PARSEAR LINKEDIN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI INSTAGRAM": {
+      "main": [
+        [
+          {
+            "node": "PARSEAR INSTAGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "CONFIRMAR ENVIO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSEAR TWITTER": {
+      "main": [
+        [
+          {
+            "node": "AI LINKEDIN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSEAR LINKEDIN": {
+      "main": [
+        [
+          {
+            "node": "AI INSTAGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR PREVIEW": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSEAR INSTAGRAM": {
+      "main": [
+        [
+          {
+            "node": "MERGE CONTEUDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXTRAIR DADOS POST": {
+      "main": [
+        [
+          {
+            "node": "AI TWITTER",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI PROMPT TWITTER IMAGE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SALVAR SESSAO SOCIAL": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TRIGGER SOCIAL MEDIA": {
+      "main": [
+        [
+          {
+            "node": "EXTRAIR DADOS POST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI TWITTER",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "AI LINKEDIN",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "AI INSTAGRAM",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI PROMPT TWITTER IMAGE": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR GEMINI TWITTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR GEMINI TWITTER": {
+      "main": [
+        [
+          {
+            "node": "GERAR IMAGEM TWITTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GERAR IMAGEM TWITTER": {
+      "main": [
+        [
+          {
+            "node": "UPLOAD TWITTER IMAGE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPLOAD TWITTER IMAGE": {
+      "main": [
+        [
+          {
+            "node": "CONSTRUIR URL TWITTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONSTRUIR URL TWITTER": {
+      "main": [
+        [
+          {
+            "node": "MERGE CONTEUDO",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "MERGE CONTEUDO": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR PREVIEW",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LM Twitter Image": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI PROMPT TWITTER IMAGE",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SALVAR SESSAO IMAGEM": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR IMAGEM TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR IMAGEM TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "AGUARDAR APROVACAO IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "SALVAR SESSAO IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SALVAR SESSAO SOCIAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "acaf0a82-0e62-4647-a309-e4f7aafd4a98",
+  "meta": {
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "KkCUTo9KVfZkfZrE",
+  "tags": []
+}

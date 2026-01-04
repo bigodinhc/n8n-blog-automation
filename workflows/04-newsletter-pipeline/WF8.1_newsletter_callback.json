@@ -1,0 +1,990 @@
+{
+  "name": "[BLOG] 8.1 NEWSLETTER CALLBACK",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "trigger-telegram",
+      "name": "TRIGGER TELEGRAM",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        304
+      ],
+      "webhookId": "nl-callback-handler",
+      "credentials": {
+        "telegramApi": {
+          "id": "AImySn34fvezwusy",
+          "name": "MT_Newsletter"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar callback do Telegram para Newsletter\nconst callback = $input.first().json;\nconst callbackData = callback.callback_query?.data || '';\nconst chatId = callback.callback_query?.message?.chat?.id || '';\nconst messageId = callback.callback_query?.message?.message_id || '';\nconst callbackId = callback.callback_query?.id || '';\n\n// Verificar se eh callback de newsletter\nif (!callbackData.startsWith('nl_')) {\n  return [{ json: { is_newsletter: false, skip: true } }];\n}\n\n// Extrair acao e session_id\nlet action = '';\nlet sessionId = '';\n\n// Formato: nl_action_sessionId\n// O sessionId sempre comeca com \"newsletter_\"\nif (callbackData.includes('_approve_')) {\n  action = 'approve_and_send';\n  // Extrair tudo a partir de \"newsletter_\"\n  const match = callbackData.match(/newsletter_\\d+/);\n  sessionId = match ? match[0] : '';\n} else if (callbackData.includes('_view_image_')) {\n  action = 'view_image';\n  const match = callbackData.match(/newsletter_\\d+/);\n  sessionId = match ? match[0] : '';\n} else if (callbackData.includes('_regen_image_')) {\n  action = 'regen_image';\n  const match = callbackData.match(/newsletter_\\d+/);\n  sessionId = match ? match[0] : '';\n} else if (callbackData.includes('_cancel_')) {\n  action = 'cancel';\n  const match = callbackData.match(/newsletter_\\d+/);\n  sessionId = match ? match[0] : '';\n}\n\nreturn [{\n  json: {\n    is_newsletter: true,\n    action: action,\n    session_id: sessionId,\n    chat_id: String(chatId),\n    message_id: messageId,\n    callback_id: callbackId,\n    callback_data: callbackData\n  }\n}];"
+      },
+      "id": "process-callback",
+      "name": "PROCESSAR CALLBACK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "is-nl",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.is_newsletter }}",
+              "rightValue": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-newsletter",
+      "name": "EH NEWSLETTER?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8587388609:AAFuL2RSX5-qBtHUFJ5fd-63X7JK2FXluNw/answerCallbackQuery",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ callback_query_id: $('PROCESSAR CALLBACK').first().json.callback_id }) }}",
+        "options": {}
+      },
+      "id": "answer-callback",
+      "name": "RESPONDER CALLBACK",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        848,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "newsletter_sessions",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PROCESSAR CALLBACK').first().json.session_id }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-session",
+      "name": "BUSCAR SESSAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "newsletter_history",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.newsletter_id }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-newsletter",
+      "name": "BUSCAR NEWSLETTER",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('PROCESSAR CALLBACK').first().json.action }}",
+                    "rightValue": "approve_content"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('PROCESSAR CALLBACK').first().json.action }}",
+                    "rightValue": "view_image"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('PROCESSAR CALLBACK').first().json.action }}",
+                    "rightValue": "regen_image"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('PROCESSAR CALLBACK').first().json.action }}",
+                    "rightValue": "approve_and_send"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('PROCESSAR CALLBACK').first().json.action }}",
+                    "rightValue": "cancel"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-action",
+      "name": "QUAL ACAO?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1648,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aprovar conteúdo - mostrar botões para imagem e envio\nconst processData = $('PROCESSAR CALLBACK').first().json;\nconst sessionId = processData.session_id;\nconst newsletter = $('BUSCAR NEWSLETTER').first().json;\n\nlet message = `✅ *CONTEÚDO APROVADO*\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\nmessage += `📧 Assunto: ${newsletter.subject}\\n\\n`;\nmessage += `Agora vamos verificar a imagem.\\n`;\nmessage += `Clique em \"Ver Imagem\" para visualizar.\\n\\n`;\nmessage += `Após aprovar a imagem, você poderá enviar a newsletter.`;\n\nconst buttons = {\n  inline_keyboard: [\n    [\n      { text: '🖼 Ver Imagem', callback_data: `nl_view_image_${sessionId}` },\n      { text: '🔄 Nova Imagem', callback_data: `nl_regen_image_${sessionId}` }\n    ],\n    [\n      { text: '❌ Cancelar', callback_data: `nl_cancel_${sessionId}` }\n    ]\n  ]\n};\n\nreturn [{\n  json: {\n    chat_id: processData.chat_id,\n    text: message,\n    parse_mode: 'Markdown',\n    reply_markup: buttons,\n    session_id: sessionId,\n    update_stage: 'pending_image',\n    content_approved: true\n  }\n}];"
+      },
+      "id": "approve-content",
+      "name": "APROVAR CONTEUDO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "newsletter_sessions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "keyValue": "={{ $json.session_id }}"
+            }
+          ]
+        }
+      },
+      "id": "update-content-approved",
+      "name": "ATUALIZAR CONTENT APROVADO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        -96
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot7710632452:AAGwT6_pVPAOCPHc-_5_j2-fLyaGDeoOrpE/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $('APROVAR CONTEUDO').first().json.chat_id, text: $('APROVAR CONTEUDO').first().json.text, parse_mode: $('APROVAR CONTEUDO').first().json.parse_mode, reply_markup: $('APROVAR CONTEUDO').first().json.reply_markup }) }}",
+        "options": {}
+      },
+      "id": "send-content-approved-msg",
+      "name": "ENVIAR MSG CONTENT APROVADO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2416,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar envio da imagem\nconst processData = $('PROCESSAR CALLBACK').first().json;\nconst newsletter = $('BUSCAR NEWSLETTER').first().json;\nconst sessionId = processData.session_id;\n\nlet message = `🖼 *IMAGEM DA NEWSLETTER*\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\nmessage += `A imagem foi gerada para o header da newsletter.\\n\\n`;\nmessage += `📧 Assunto: ${newsletter.subject}\\n\\n`;\nmessage += `Aprove a imagem para prosseguir com o envio.`;\n\nconst buttons = {\n  inline_keyboard: [\n    [\n      { text: '✅ Aprovar Imagem', callback_data: `nl_approve_image_${sessionId}` },\n      { text: '🔄 Regenerar', callback_data: `nl_regen_image_${sessionId}` }\n    ],\n    [\n      { text: '❌ Cancelar', callback_data: `nl_cancel_${sessionId}` }\n    ]\n  ]\n};\n\nreturn [{\n  json: {\n    chat_id: processData.chat_id,\n    text: message,\n    parse_mode: 'Markdown',\n    reply_markup: buttons,\n    session_id: sessionId,\n    image_url: newsletter.image_url\n  }\n}];"
+      },
+      "id": "view-image",
+      "name": "VER IMAGEM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot7710632452:AAGwT6_pVPAOCPHc-_5_j2-fLyaGDeoOrpE/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $('VER IMAGEM').first().json.chat_id, text: $('VER IMAGEM').first().json.text, parse_mode: $('VER IMAGEM').first().json.parse_mode, reply_markup: $('VER IMAGEM').first().json.reply_markup }) }}",
+        "options": {}
+      },
+      "id": "send-image-preview",
+      "name": "ENVIAR PREVIEW IMAGEM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2176,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aprovar imagem - mostrar opções de envio\nconst processData = $('PROCESSAR CALLBACK').first().json;\nconst newsletter = $('BUSCAR NEWSLETTER').first().json;\nconst sessionId = processData.session_id;\n\nlet message = `✅ *IMAGEM APROVADA*\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\nmessage += `📧 *Newsletter pronta para envio!*\\n\\n`;\nmessage += `📋 Assunto: ${newsletter.subject}\\n`;\nmessage += `📝 Posts incluídos: ${JSON.parse(newsletter.posts_included || '[]').length}\\n\\n`;\nmessage += `Escolha como deseja enviar:`;\n\nconst buttons = {\n  inline_keyboard: [\n    [\n      { text: '📧 Enviar Email', callback_data: `nl_send_email_${sessionId}` },\n      { text: '📱 Enviar WhatsApp', callback_data: `nl_send_whatsapp_${sessionId}` }\n    ],\n    [\n      { text: '🚀 Enviar Todos', callback_data: `nl_send_all_${sessionId}` }\n    ],\n    [\n      { text: '❌ Cancelar', callback_data: `nl_cancel_${sessionId}` }\n    ]\n  ]\n};\n\nreturn [{\n  json: {\n    chat_id: processData.chat_id,\n    text: message,\n    parse_mode: 'Markdown',\n    reply_markup: buttons,\n    session_id: sessionId,\n    update_stage: 'approved',\n    image_approved: true\n  }\n}];"
+      },
+      "id": "approve-image",
+      "name": "APROVAR IMAGEM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "newsletter_sessions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "keyValue": "={{ $json.session_id }}"
+            }
+          ]
+        }
+      },
+      "id": "update-image-approved",
+      "name": "ATUALIZAR IMAGE APROVADO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        304
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot7710632452:AAGwT6_pVPAOCPHc-_5_j2-fLyaGDeoOrpE/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $('APROVAR IMAGEM').first().json.chat_id, text: $('APROVAR IMAGEM').first().json.text, parse_mode: $('APROVAR IMAGEM').first().json.parse_mode, reply_markup: $('APROVAR IMAGEM').first().json.reply_markup }) }}",
+        "options": {}
+      },
+      "id": "send-image-approved-msg",
+      "name": "ENVIAR MSG IMAGE APROVADO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2416,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar envio para teste via Gmail\nconst processData = $('PROCESSAR CALLBACK').first().json;\nconst newsletter = $('BUSCAR NEWSLETTER').first().json;\nconst sessionId = processData.session_id;\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    newsletter_id: newsletter.id,\n    chat_id: processData.chat_id,\n    subject: newsletter.subject,\n    content_html: newsletter.content_html,\n    whatsapp_text: newsletter.whatsapp_text || newsletter.summary,\n    // Email de teste - depois trocar para lista de subscribers\n    test_email: 'antonio@mineralstrading.com.br'\n  }\n}];"
+      },
+      "id": "send-all",
+      "name": "ENVIAR TODOS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "newsletter_subscribers",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "keyValue": "active"
+            }
+          ]
+        }
+      },
+      "id": "fetch-subscribers",
+      "name": "BUSCAR SUBSCRIBERS",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3232,
+        -96
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('ENVIAR TODOS').first().json.test_email || 'antonio@mineralstrading.com.br' }}",
+        "subject": "={{ $('BUSCAR NEWSLETTER').first().json.subject }}",
+        "message": "={{ $('BUSCAR NEWSLETTER').first().json.content_html }}",
+        "options": {
+          "senderName": "Minerals Trading Daily"
+        }
+      },
+      "id": "send-email-sendgrid",
+      "name": "ENVIAR VIA GMAIL",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2208,
+        512
+      ],
+      "webhookId": "d4416ad3-f7dd-4290-9ffe-d388aab8164b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "JbcCyaZUQygNEgkb",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mineralstrading.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "e6591b90-1ff0-4e57-ac80-9074770351fa"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.subscriber_phone, text: $json.message_text }) }}",
+        "options": {}
+      },
+      "id": "send-whatsapp",
+      "name": "ENVIAR VIA UAZAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3040,
+        704
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "newsletter_history",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('ENVIAR TODOS').first().json.newsletter_id }}"
+            }
+          ]
+        }
+      },
+      "id": "update-newsletter-sent",
+      "name": "ATUALIZAR NEWSLETTER ENVIADA",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3296,
+        496
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar mensagem de confirmacao do teste\nconst newsletter = $('BUSCAR NEWSLETTER').first().json;\nconst sessionData = $('BUSCAR SESSAO').first().json;\nconst sendData = $('ENVIAR TODOS').first().json;\n\nlet message = `✅ *NEWSLETTER ENVIADA (TESTE)*\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\nmessage += `📧 *Email enviado para:* ${sendData.test_email}\\n\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n`;\nmessage += `📋 *Assunto:* ${newsletter.subject}\\n`;\nmessage += `🕐 *Enviado:* ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\\n\\n`;\nmessage += `💡 _Verifique sua caixa de entrada!_`;\n\nreturn [{\n  json: {\n    chat_id: sessionData.chat_id,\n    text: message,\n    parse_mode: 'Markdown',\n    newsletter_id: newsletter.id\n  }\n}];"
+      },
+      "id": "send-confirmation",
+      "name": "ENVIAR CONFIRMACAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot7710632452:AAGwT6_pVPAOCPHc-_5_j2-fLyaGDeoOrpE/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $json.chat_id, text: $json.text, parse_mode: $json.parse_mode }) }}",
+        "options": {}
+      },
+      "id": "send-final-confirmation",
+      "name": "ENVIAR MSG FINAL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3744,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cancelar newsletter\nconst processData = $('PROCESSAR CALLBACK').first().json;\nconst sessionId = processData.session_id;\n\nlet message = `❌ *NEWSLETTER CANCELADA*\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\nmessage += `A newsletter foi cancelada e não será enviada.\\n\\n`;\nmessage += `Você pode gerar uma nova newsletter a qualquer momento.`;\n\nreturn [{\n  json: {\n    chat_id: processData.chat_id,\n    text: message,\n    parse_mode: 'Markdown',\n    session_id: sessionId\n  }\n}];"
+      },
+      "id": "cancel-newsletter",
+      "name": "CANCELAR NEWSLETTER",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "newsletter_sessions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "keyValue": "={{ $json.session_id }}"
+            }
+          ]
+        }
+      },
+      "id": "update-cancelled",
+      "name": "ATUALIZAR CANCELADO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        704
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot7710632452:AAGwT6_pVPAOCPHc-_5_j2-fLyaGDeoOrpE/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $('CANCELAR NEWSLETTER').first().json.chat_id, text: $('CANCELAR NEWSLETTER').first().json.text, parse_mode: $('CANCELAR NEWSLETTER').first().json.parse_mode }) }}",
+        "options": {}
+      },
+      "id": "send-cancelled-msg",
+      "name": "ENVIAR MSG CANCELADO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2416,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar lista de destinatários WhatsApp\nconst newsletter = $('BUSCAR NEWSLETTER').first().json;\nconst subscribers = $('BUSCAR SUBSCRIBERS').all().map(s => s.json);\n\n// Filtrar apenas quem tem WhatsApp habilitado\nconst whatsappSubscribers = subscribers.filter(s => {\n  const channels = Array.isArray(s.channels) ? s.channels : JSON.parse(s.channels || '[\"email\"]');\n  return channels.includes('whatsapp') && s.phone;\n});\n\n// Se não há destinatários, retornar item para pular loop\nif (whatsappSubscribers.length === 0) {\n  return [{ \n    json: { \n      newsletter_id: newsletter.id,\n      whatsapp_recipients: 0, \n      skip_whatsapp: true,\n      content_text: newsletter.content_text\n    } \n  }];\n}\n\n// Retornar um item para cada destinatário\nreturn whatsappSubscribers.map(sub => ({\n  json: {\n    newsletter_id: newsletter.id,\n    subscriber_phone: sub.phone,\n    subscriber_name: sub.name,\n    message_text: newsletter.content_text,\n    whatsapp_recipients: whatsappSubscribers.length,\n    skip_whatsapp: false\n  }\n}));"
+      },
+      "id": "preparar-whatsapp",
+      "name": "PREPARAR ITEM WHATSAPP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        128
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "loop-whatsapp",
+      "name": "LOOP WHATSAPP",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2896,
+        592
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "wait-whatsapp",
+      "name": "AGUARDAR 2S",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3264,
+        704
+      ],
+      "webhookId": "57f12218-c5a4-419b-b4b7-c673cd4d848c",
+      "disabled": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "TRIGGER TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR CALLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "EH NEWSLETTER?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EH NEWSLETTER?": {
+      "main": [
+        [
+          {
+            "node": "RESPONDER CALLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "RESPONDER CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR NEWSLETTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR NEWSLETTER": {
+      "main": [
+        [
+          {
+            "node": "QUAL ACAO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUAL ACAO?": {
+      "main": [
+        [
+          {
+            "node": "APROVAR CONTEUDO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "VER IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "APROVAR IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ENVIAR TODOS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CANCELAR NEWSLETTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "APROVAR CONTEUDO": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR CONTENT APROVADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR CONTENT APROVADO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR MSG CONTENT APROVADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VER IMAGEM": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR PREVIEW IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "APROVAR IMAGEM": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR IMAGE APROVADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR IMAGE APROVADO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR MSG IMAGE APROVADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR SUBSCRIBERS": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR VIA GMAIL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR VIA UAZAPI": {
+      "main": [
+        [
+          {
+            "node": "AGUARDAR 2S",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR NEWSLETTER ENVIADA": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR CONFIRMACAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR CONFIRMACAO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR MSG FINAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CANCELAR NEWSLETTER": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR CANCELADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR CANCELADO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR MSG CANCELADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR ITEM WHATSAPP": {
+      "main": [
+        [
+          {
+            "node": "LOOP WHATSAPP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LOOP WHATSAPP": {
+      "0": [
+        [
+          {
+            "node": "ATUALIZAR NEWSLETTER ENVIADA",
+            "type": "0",
+            "index": 0
+          }
+        ]
+      ],
+      "1": [
+        [
+          {
+            "node": "ENVIAR VIA UAZAPI",
+            "type": "1",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AGUARDAR 2S": {
+      "main": [
+        [
+          {
+            "node": "LOOP WHATSAPP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR TODOS": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR VIA GMAIL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR VIA GMAIL": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR NEWSLETTER ENVIADA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "dxVlQYOyMQ4xxaHt",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "d2081f71-0c88-4236-9bf0-595e3a441bd6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "e88ZJNv0ffG8nILx",
+  "tags": []
+}

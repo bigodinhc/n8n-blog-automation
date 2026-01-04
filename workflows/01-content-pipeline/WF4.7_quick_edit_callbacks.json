@@ -1,0 +1,970 @@
+{
+  "name": "[BLOG] 4.7 QUICK EDIT CALLBACKS",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-wf",
+      "name": "TRIGGER WORKFLOW",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados recebidos via executeWorkflow\nconst data = $json;\nconst callbackData = data.callback_data || '';\nconst callbackQueryId = data.callback_query_id;\nconst chatId = data.chat_id;\nconst messageId = data.message_id;\nconst userId = data.user_id;\nconst userName = data.user_name;\n\n// Parseia: qe_action_postid ou edit_postid\nconst parts = callbackData.split('_');\nlet action, postId;\n\nif (parts[0] === 'qe') {\n  action = parts[1];\n  postId = parts.slice(2).join('_');\n} else if (parts[0] === 'edit') {\n  action = 'menu';\n  postId = parts.slice(1).join('_');\n} else {\n  return [{ is_quick_edit: false }];\n}\n\nreturn [{\n  is_quick_edit: true,\n  action: action,\n  post_id: postId,\n  callback_query_id: callbackQueryId,\n  chat_id: chatId,\n  message_id: messageId,\n  user_id: userId,\n  user_name: userName,\n  is_menu: action === 'menu',\n  is_start: ['title', 'tags', 'content'].includes(action),\n  is_confirm: action === 'confirm',\n  is_redo: action === 'redo',\n  is_cancel: action === 'cancel',\n  edit_type: ['title', 'tags', 'content'].includes(action) ? action : null\n}];"
+      },
+      "id": "code-process",
+      "name": "PROCESSAR DADOS",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        240,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "combinator": "and"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.is_quick_edit }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-qe",
+      "name": "EH QUICK EDIT?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        480,
+        0
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {},
+      "id": "noop-ignore",
+      "name": "IGNORAR",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        720,
+        112
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/answerCallbackQuery",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"callback_query_id\": \"{{ $json.callback_query_id }}\", \"text\": \"{{ $json.is_menu ? 'Selecione o que editar' : $json.is_start ? 'Editando...' : $json.is_confirm ? 'Aplicando...' : $json.is_redo ? 'Digite novamente' : 'Cancelado' }}\"}",
+        "options": {}
+      },
+      "id": "http-answer",
+      "name": "RESPONDER CALLBACK",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        720,
+        -64
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('PROCESSAR DADOS').first().json.is_menu }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('PROCESSAR DADOS').first().json.is_start }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('PROCESSAR DADOS').first().json.is_confirm }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('PROCESSAR DADOS').first().json.is_redo }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('PROCESSAR DADOS').first().json.is_cancel }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "switch-action",
+      "name": "QUAL ACAO?",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        960,
+        -112
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": {{ $('PROCESSAR DADOS').first().json.chat_id }},\n  \"text\": \"✏️ *EDIÇÃO RÁPIDA*\\n━━━━━━━━━━━━━━━━━━━━━\\n\\n📝 O que você deseja editar?\\n\\n_Selecione uma opção abaixo:_\",\n  \"parse_mode\": \"Markdown\",\n  \"reply_markup\": {\"inline_keyboard\": [[{\"text\": \"📝 Título\", \"callback_data\": \"qe_title_{{ $('PROCESSAR DADOS').first().json.post_id }}\"}, {\"text\": \"🏷️ Tags\", \"callback_data\": \"qe_tags_{{ $('PROCESSAR DADOS').first().json.post_id }}\"}], [{\"text\": \"📄 Conteúdo (AI)\", \"callback_data\": \"qe_content_{{ $('PROCESSAR DADOS').first().json.post_id }}\"}], [{\"text\": \"❌ Cancelar\", \"callback_data\": \"qe_cancel_{{ $('PROCESSAR DADOS').first().json.post_id }}\"}]]}\n}",
+        "options": {}
+      },
+      "id": "http-menu",
+      "name": "ENVIAR MENU",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1200,
+        -336
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "tableId": "edit_sessions",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "session_id",
+              "fieldValue": "=edit_{{ $('PROCESSAR DADOS').first().json.post_id.substring(0,8) }}_{{ Date.now() }}"
+            },
+            {
+              "fieldId": "post_id",
+              "fieldValue": "={{ $('PROCESSAR DADOS').first().json.post_id }}"
+            },
+            {
+              "fieldId": "chat_id",
+              "fieldValue": "={{ String($('PROCESSAR DADOS').first().json.chat_id) }}"
+            },
+            {
+              "fieldId": "user_id",
+              "fieldValue": "={{ String($('PROCESSAR DADOS').first().json.user_id) }}"
+            },
+            {
+              "fieldId": "message_id",
+              "fieldValue": "={{ $('PROCESSAR DADOS').first().json.message_id }}"
+            },
+            {
+              "fieldId": "edit_type",
+              "fieldValue": "={{ $('PROCESSAR DADOS').first().json.edit_type }}"
+            },
+            {
+              "fieldId": "stage",
+              "fieldValue": "waiting_input"
+            },
+            {
+              "fieldId": "expires_at",
+              "fieldValue": "={{ new Date(Date.now() + 10 * 60000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supa-criar-sessao",
+      "name": "CRIAR SESSAO",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1200,
+        -192
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('PROCESSAR DADOS').first().json;\nconst editType = data.edit_type;\n\nlet promptText;\nswitch(editType) {\n  case 'title':\n    promptText = '📝 *EDITAR TÍTULO*\\n\\nEnvie o novo título do post:\\n\\n_Regras: 10-120 caracteres_';\n    break;\n  case 'tags':\n    promptText = '🏷️ *EDITAR TAGS*\\n\\nEnvie as novas tags separadas por vírgula:\\n\\n_Exemplo: minério, china, vale, commodities_\\n_Regras: 1-10 tags, cada uma com 2-30 caracteres_';\n    break;\n  case 'content':\n    promptText = '📄 *EDITAR CONTEÚDO*\\n\\nDescreva as alterações que deseja no conteúdo:\\n\\n_As alterações serão processadas por AI_\\n_Regras: mínimo 20 caracteres_';\n    break;\n  default:\n    promptText = '✏️ Envie o novo valor:';\n}\n\nreturn [{\n  chat_id: data.chat_id,\n  text: promptText,\n  parse_mode: 'Markdown'\n}];"
+      },
+      "id": "code-prompt",
+      "name": "FORMATAR PROMPT",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1440,
+        -192
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "http-prompt",
+      "name": "ENVIAR PROMPT",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1680,
+        -192
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "edit_sessions",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PROCESSAR DADOS').first().json.post_id }}"
+            },
+            {
+              "keyName": "stage",
+              "condition": "eq",
+              "keyValue": "preview"
+            }
+          ]
+        }
+      },
+      "id": "supa-buscar-sessao",
+      "name": "BUSCAR SESSAO",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1200,
+        -48
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $json;\nconst callback = $('PROCESSAR DADOS').first().json;\n\nif (!session || !session.id) {\n  return [{\n    success: false,\n    error: 'Sessao nao encontrada',\n    chat_id: callback.chat_id\n  }];\n}\n\nconst editType = session.edit_type;\nconst newValue = session.new_value;\nconst postId = session.post_id;\n\nlet updateFields = {};\nlet successMessage = '';\n\nswitch(editType) {\n  case 'title':\n    updateFields = { title: newValue };\n    successMessage = `✅ *Título atualizado!*\\n\\n📝 Novo título:\\n_${newValue}_`;\n    break;\n    \n  case 'tags':\n    const tagsArray = newValue.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);\n    updateFields = { tags: tagsArray };\n    successMessage = `✅ *Tags atualizadas!*\\n\\n🏷️ Novas tags:\\n_${tagsArray.join(', ')}_`;\n    break;\n    \n  case 'content':\n    return [{\n      success: true,\n      needs_ai: true,\n      post_id: postId,\n      feedback: newValue,\n      session_id: session.session_id,\n      chat_id: callback.chat_id,\n      message: '✅ *Alterações enviadas para AI!*\\n\\n⏳ Aguarde o processamento...'\n    }];\n}\n\nreturn [{\n  success: true,\n  needs_ai: false,\n  post_id: postId,\n  edit_type: editType,\n  update_fields: updateFields,\n  session_id: session.session_id,\n  chat_id: callback.chat_id,\n  message: successMessage\n}];"
+      },
+      "id": "code-aplicar",
+      "name": "APLICAR EDICAO",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1440,
+        -48
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "combinator": "and"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.needs_ai }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-needs-ai",
+      "name": "PRECISA AI?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1680,
+        -48
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_posts",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.update_fields.title }}"
+            },
+            {
+              "fieldId": "tags",
+              "fieldValue": "={{ $json.update_fields.tags }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supa-update-post",
+      "name": "ATUALIZAR POST",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1920,
+        -160
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "edit_sessions",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "condition": "eq",
+              "keyValue": "={{ $('APLICAR EDICAO').first().json.session_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stage",
+              "fieldValue": "confirmed"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supa-finalizar",
+      "name": "FINALIZAR SESSAO",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        2160,
+        -160
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": {{ $('APLICAR EDICAO').first().json.chat_id }},\n  \"text\": \"{{ $('APLICAR EDICAO').first().json.message }}\\n\\n_Deseja editar mais alguma coisa?_\",\n  \"parse_mode\": \"Markdown\",\n  \"reply_markup\": {\"inline_keyboard\": [[{\"text\": \"✏️ Editar mais\", \"callback_data\": \"edit_{{ $('APLICAR EDICAO').first().json.post_id }}\"}, {\"text\": \"✅ Aprovar\", \"callback_data\": \"approve_{{ $('APLICAR EDICAO').first().json.post_id }}\"}], [{\"text\": \"❌ Cancelar\", \"callback_data\": \"qe_cancel_{{ $('APLICAR EDICAO').first().json.post_id }}\"}]]}\n}",
+        "options": {}
+      },
+      "id": "http-sucesso",
+      "name": "ENVIAR SUCESSO",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2400,
+        -176
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "5TuCwLZLlGdczwhU"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "post_id": "={{ $json.post_id }}",
+            "review_notes": "={{ $json.feedback }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "exec-wf5",
+      "name": "CHAMAR WF5 REVISION",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "position": [
+        1920,
+        64
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "edit_sessions",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PROCESSAR DADOS').first().json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stage",
+              "fieldValue": "waiting_input"
+            },
+            {
+              "fieldId": "new_value"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldId": "expires_at",
+              "fieldValue": "={{ new Date(Date.now() + 10 * 60000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supa-reset",
+      "name": "RESET SESSAO",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1200,
+        96
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "edit_sessions",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PROCESSAR DADOS').first().json.post_id }}"
+            }
+          ]
+        }
+      },
+      "id": "supa-buscar-tipo",
+      "name": "BUSCAR TIPO",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1440,
+        96
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $json;\nconst callback = $('PROCESSAR DADOS').first().json;\n\nlet promptText;\nswitch(session.edit_type) {\n  case 'title':\n    promptText = '📝 *EDITAR TÍTULO*\\n\\nEnvie o novo título do post:\\n\\n_Regras: 10-120 caracteres_';\n    break;\n  case 'tags':\n    promptText = '🏷️ *EDITAR TAGS*\\n\\nEnvie as novas tags separadas por vírgula:\\n\\n_Exemplo: minério, china, vale, commodities_\\n_Regras: 1-10 tags, cada uma com 2-30 caracteres_';\n    break;\n  case 'content':\n    promptText = '📄 *EDITAR CONTEÚDO*\\n\\nDescreva as alterações que deseja no conteúdo:\\n\\n_As alterações serão processadas por AI_\\n_Regras: mínimo 20 caracteres_';\n    break;\n  default:\n    promptText = '✏️ Envie o novo valor:';\n}\n\nreturn [{\n  chat_id: callback.chat_id,\n  text: promptText,\n  parse_mode: 'Markdown'\n}];"
+      },
+      "id": "code-redo",
+      "name": "FORMATAR REDO",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1680,
+        96
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "http-redo",
+      "name": "ENVIAR REDO",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1920,
+        96
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "edit_sessions",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PROCESSAR DADOS').first().json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stage",
+              "fieldValue": "cancelled"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supa-cancelar",
+      "name": "CANCELAR SESSAO",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1200,
+        240
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": {{ $('PROCESSAR DADOS').first().json.chat_id }},\n  \"text\": \"❌ *Edição cancelada*\\n\\n_O post não foi alterado._\",\n  \"parse_mode\": \"Markdown\"\n}",
+        "options": {}
+      },
+      "id": "http-cancelado",
+      "name": "ENVIAR CANCELADO",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1440,
+        240
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": {{ $('APLICAR EDICAO').first().json.chat_id }},\n  \"text\": \"✅ *Alterações enviadas para AI!*\\n\\n⏳ Aguarde o processamento...\\n\\n_O conteúdo será revisado e você receberá a nova versão em breve._\",\n  \"parse_mode\": \"Markdown\"\n}",
+        "options": {}
+      },
+      "id": "http-ai-msg",
+      "name": "AVISAR AI PROCESSING",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        64
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "TRIGGER WORKFLOW": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR DADOS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR DADOS": {
+      "main": [
+        [
+          {
+            "node": "EH QUICK EDIT?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EH QUICK EDIT?": {
+      "main": [
+        [
+          {
+            "node": "RESPONDER CALLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IGNORAR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RESPONDER CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "QUAL ACAO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUAL ACAO?": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR MENU",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CRIAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BUSCAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RESET SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CANCELAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRIAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "FORMATAR PROMPT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FORMATAR PROMPT": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR PROMPT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "APLICAR EDICAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "APLICAR EDICAO": {
+      "main": [
+        [
+          {
+            "node": "PRECISA AI?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PRECISA AI?": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR POST",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CHAMAR WF5 REVISION",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR POST": {
+      "main": [
+        [
+          {
+            "node": "FINALIZAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FINALIZAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR SUCESSO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RESET SESSAO": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR TIPO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR TIPO": {
+      "main": [
+        [
+          {
+            "node": "FORMATAR REDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FORMATAR REDO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR REDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CANCELAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR CANCELADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CHAMAR WF5 REVISION": {
+      "main": [
+        [
+          {
+            "node": "AVISAR AI PROCESSING",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "14e4ae4a-aa50-4847-a069-3382c96e9d29",
+  "meta": {
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "bKvqmScFWW9KK8ur",
+  "tags": []
+}

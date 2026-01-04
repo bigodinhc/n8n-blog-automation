@@ -1,0 +1,1270 @@
+{
+  "name": "[BLOG]  1 FEED SUPABASE BLOGGING",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c8819698-8948-45b1-bbdf-3e20492c713a",
+              "name": "message.text",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -400,
+        -208
+      ],
+      "id": "dece9281-3410-451b-8d82-d35563146465",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -16
+      ],
+      "id": "da43222b-1cc3-44f6-92e1-09cc6c8e5634",
+      "name": "Date & Time"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        -16
+      ],
+      "id": "717137e7-3a4d-47c6-ad70-b97850efffa3",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -176,
+        -144
+      ],
+      "id": "0ed37a46-0b8f-4bff-b934-658958d9887f",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node (Node.js 18+)\n// Entrada esperada: dois itens, um com {message:{text}} e outro com {currentDate}\n// Saída: 1 item no formato da tabela raw_inputs do Supabase\n\nconst all = items.map(i => i.json);\n\nconst rawText = all.find(o => o?.message?.text)?.message.text ?? \"\";\nconst capturedAt = all.find(o => o?.currentDate)?.currentDate ?? new Date().toISOString();\n\n// Regex para timestamp estilo \"05 Nov 2025 04:29:33\" (sem limpar o texto)\nconst dateRegex = /\\b(\\d{1,2})\\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+(\\d{4})\\s+(\\d{2}):(\\d{2}):(\\d{2})\\b/mi;\nconst m = rawText.match(dateRegex);\n\nlet publishedAtText = null;\nlet publishedAtIso = null;\n\nif (m) {\n  publishedAtText = m[0]; // exatamente como está no texto\n  const day = parseInt(m[1], 10);\n  const mon = m[2].slice(0,3).toLowerCase();\n  const year = parseInt(m[3], 10);\n  const hh = parseInt(m[4], 10);\n  const mm = parseInt(m[5], 10);\n  const ss = parseInt(m[6], 10);\n\n  const monthIdx = {\n    jan:0,feb:1,mar:2,apr:3,may:4,jun:5,\n    jul:6,aug:7,sep:8,oct:9,nov:10,dec:11\n  }[mon];\n\n  if (Number.isInteger(monthIdx)) {\n    // Interpretado como UTC para padronizar\n    const dt = new Date(Date.UTC(year, monthIdx, day, hh, mm, ss));\n    publishedAtIso = dt.toISOString();\n  }\n}\n\n// Monta o registro no formato da tabela raw_inputs\nconst out = {\n  // Remova 'captured_at' se quiser usar o DEFAULT NOW() do banco\n  captured_at: capturedAt,          // TIMESTAMPTZ\n  processed: false,                 // deixa marcado como ainda não processado\n  blob_content: {\n    article_text: rawText,          // texto original, sem limpeza\n    published_at_text: publishedAtText, // como apareceu no texto (pode ser null)\n    published_at_iso: publishedAtIso     // normalizado em UTC (pode ser null)\n  }\n};\n\nreturn [{ json: out }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        -144
+      ],
+      "id": "9c570d11-c841-4643-99bc-23f039813da3",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "tableId": "raw_inputs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "captured_at",
+              "fieldValue": "={{ $json.captured_at }}"
+            },
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ $json.processed }}"
+            },
+            {
+              "fieldId": "blob_content",
+              "fieldValue": "={{ $json.blob_content.article_text }}"
+            },
+            {
+              "fieldId": "content_hash",
+              "fieldValue": "={{ $json.content_hash }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        496,
+        -144
+      ],
+      "id": "ebbe9bf3-2963-4343-a070-a9283d467faf",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -864,
+        -464
+      ],
+      "id": "c778c3ad-abcc-4583-ba56-749b83741cf9",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5966bc1e-ff2a-4265-b384-28ee593a24a9",
+              "name": "articles[0]",
+              "value": "={{ $json.articles[0] }}",
+              "type": "object"
+            },
+            {
+              "id": "d433b6b4-b0aa-4c3b-ab51-a20b881f904e",
+              "name": "articles[1]",
+              "value": "={{ $json.articles[1] }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -640,
+        -464
+      ],
+      "id": "4f78fc1c-cbce-4c2d-b7ec-02476f71ea86",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "tableId": "raw_inputs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "captured_at",
+              "fieldValue": "={{ $json.extractedAt }}"
+            },
+            {
+              "fieldId": "processed",
+              "fieldValue": "false"
+            },
+            {
+              "fieldId": "blob_content",
+              "fieldValue": "={{ $json.text }}"
+            },
+            {
+              "fieldId": "content_hash",
+              "fieldValue": "={{ $json.content_hash }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        256,
+        -416
+      ],
+      "id": "51f8ddf5-6213-496c-9817-bb778efee8dd",
+      "name": "Create a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -192,
+        -464
+      ],
+      "id": "c00d97c6-7157-4ced-b5ef-8deb47804065",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node (JavaScript)\n// Entrada esperada: items[0].json contendo:\n//  - { articles: [ { title, fullText, paragraphs, publishDate, ... }, ... ] }\n//  - OU um array no topo: [ { articles: [...] } ]\n// Saída: um item por artigo com campo .json.text (title + fullText)\n\nfunction pickArticles(input) {\n  if (!input) return [];\n  // Caso 1: já seja { articles: [...] }\n  if (Array.isArray(input.articles)) return input.articles;\n\n  // Caso 2: seja um array no topo: [ { articles: [...] } ]\n  if (Array.isArray(input) && input.length && Array.isArray(input[0]?.articles)) {\n    return input[0].articles;\n  }\n\n  // Caso 3: já venha um único artigo (title presente)\n  if (input.title) return [input];\n\n  return [];\n}\n\nconst root = items?.[0]?.json;\nconst articles = pickArticles(root);\n\nif (!articles.length) {\n  return [{\n    json: {\n      error: 'Estrutura de entrada não contém artigos.',\n      receivedSample: root\n    }\n  }];\n}\n\nconst out = articles.map((a, idx) => {\n  const title = (a.title ?? '').toString().trim();\n  let body = (a.fullText ?? '').toString().trim();\n\n  if (!body && Array.isArray(a.paragraphs)) {\n    body = a.paragraphs.map(p => (p ?? '').toString().trim()).filter(Boolean).join('\\n\\n');\n  }\n\n  const text = [title, body].filter(Boolean).join('\\n\\n');\n\n  return {\n    json: {\n      index: idx + 1,\n      text,                 // <- texto único para usar no loop\n      title,\n      publishDate: a.publishDate ?? a.gridDateTime ?? null,\n      author: a.author ?? null,\n      gridKey: a.gridKey ?? null,\n      gridDateTime: a.gridDateTime ?? null,\n      extractedAt: a.extractedAt ?? null,\n      metadata: a.metadata ?? null,\n      // Opcional: manter o objeto original\n      // original: a\n    }\n  };\n});\n\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        -464
+      ],
+      "id": "07be3356-67aa-4144-8115-53624602143f",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9,13,16 * * 1-5"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -624,
+        400
+      ],
+      "id": "4a3d05e6-f00b-434d-a2ab-dece066da995",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorId": {
+          "__rl": true,
+          "value": "Pp3wBQjMPkcd1ga8L",
+          "mode": "list",
+          "cachedResultName": "PLATTS_SCRAP_NEWS (bigodeio05/platts-scrap-news)",
+          "cachedResultUrl": "https://console.apify.com/actors/Pp3wBQjMPkcd1ga8L/input"
+        },
+        "customBody": "{\n    \"collectMarketCommentary\": true,\n    \"dateFilter\": \"today\",\n    \"maxArticles\": 10,\n    \"password\": \"141204*MtM\",\n    \"username\": \"antonio@mineralstrading.com.br\",\n    \"testMode\": false,\n    \"saveScreenshots\": true,\n    \"useProxy\": false\n}",
+        "memory": 4096
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        400
+      ],
+      "id": "0e2b295f-9a7f-46c9-8688-af41a947cae8",
+      "name": "Run an Actor and get dataset",
+      "credentials": {
+        "apifyApi": {
+          "id": "ZJH5mLno5O2Si01y",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Adicionar block do Discord em cada notícia\n  // IMPORTANTE: Este nó recebe APENAS notícias novas (não duplicadas) do PostgreSQL\n\n  const items = $input.all();\n  const output = [];\n\n  // Validar blocks permitidos\n  const validBlocks = ['Top News', 'Market Commentary', 'Rationale', 'News', 'General'];\n\n  // Processar cada notícia individualmente\n  for (const item of items) {\n    const news = item.json;\n\n    // O SQL já tem o block original da notícia\n    // E também calculou o discord_channel baseado em:\n    // - relevance_score\n    // - block (Top News, Market Commentary, Rationale, News)\n    // - is_iron_ore_related\n\n    let block = news.block || 'General';\n\n    // Validar se o block existe, senão usa General\n    if (!validBlocks.includes(block)) {\n      block = 'General';\n    }\n\n    // Adicionar cada notícia como item individual com campo block\n    output.push({\n      json: {\n        ...news,\n        block: block, // Usando block ao invés de channel\n        discord_channel: news.discord_channel, // Mantém o canal calculado pelo SQL\n        requires_translation: true,\n        requires_summary: true\n      }\n    });\n  }\n\n  // Se não houver notícias novas\n  if (output.length === 0) {\n    return [{\n      json: {\n        message: \"Nenhuma notícia nova para processar\",\n        duplicates_filtered: true,\n        block: null\n      }\n    }];\n  }\n\n  return output; // Retorna TODOS os items individualmente com campo block"
+      },
+      "id": "0343cbb6-21fc-48d3-b89d-db5991e27cf5",
+      "name": "Fitler by Channel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node (JavaScript)\n// Entrada esperada em items[0].json (ou [ { ... } ] como no exemplo).\n// Saída: um item por artigo, separado entre newsInsights e marketCommentary.\n\nfunction unwrapRoot(input) {\n  if (Array.isArray(input)) return input[0] ?? {};\n  return input ?? {};\n}\n\nfunction toStringSafe(v) {\n  return (v ?? '').toString().trim();\n}\n\nfunction buildFullText(entry) {\n  const ft = toStringSafe(entry.fullText);\n  if (ft) return ft;\n  if (Array.isArray(entry.paragraphs)) {\n    const joined = entry.paragraphs\n      .map(p => toStringSafe(p))\n      .filter(Boolean)\n      .join('\\n\\n');\n    return joined || null;\n  }\n  return null;\n}\n\nfunction deriveHeadline(entry) {\n  const title = toStringSafe(entry.title);\n  const dateField = toStringSafe(entry.date);\n  const source = toStringSafe(entry.source);\n\n  // Se o título for genérico (\"News & Insights\" / \"Market Commentary\"),\n  // tentamos usar 'date' quando parecer um cabeçalho textual (market commentary costuma vir assim).\n  const isGeneric =\n    /^news\\s*&\\s*insights$/i.test(title) || /^market\\s*commentary$/i.test(title);\n\n  // Heurística: se 'date' não parecer data/tempo (\"11/05/2025 ...\" ou \"14 hours ago\"), tratamos como headline.\n  const looksLikeDate =\n    /^\\d{2}\\/\\d{2}\\/\\d{4}\\s+\\d{2}:\\d{2}:\\d{2}\\s+UTC$/i.test(dateField) ||\n    /^\\d+\\s+\\w+\\s+ago$/i.test(dateField);\n\n  if (title && !isGeneric) return title;\n  if (dateField && !looksLikeDate) return dateField;\n  // fallback\n  return title || dateField || null;\n}\n\nconst rootIn = unwrapRoot(items?.[0]?.json);\nconst out = [];\n\n// Helper para empurrar um array (newsInsights / marketCommentary)\nfunction pushGroup(arr, category) {\n  if (!Array.isArray(arr)) return;\n  for (const entry of arr) {\n    const fullText = buildFullText(entry);\n    const extractedAt = entry.extractedAt ?? rootIn.extractedAt ?? null;\n\n    out.push({\n      json: {\n        category,                                 // 'newsInsights' | 'marketCommentary'\n        index: entry.index ?? null,\n        headline: deriveHeadline(entry),          // título legível\n        fullText,                                 // conteúdo completo (ou paragraphs unidos)\n        extractedAt,                              // timestamp de extração\n        // metadados úteis\n        titleOriginal: toStringSafe(entry.title) || null,\n        author: entry.author ?? null,\n        source: entry.source ?? null,\n        publishDate: entry.publishDate ?? null,\n        date: entry.date ?? null,\n        elementId: entry.elementId ?? null,\n      },\n    });\n  }\n}\n\npushGroup(rootIn.newsInsights, 'newsInsights');\npushGroup(rootIn.marketCommentary, 'marketCommentary');\n\nif (!out.length) {\n  return [{\n    json: {\n      error: 'Nenhum item encontrado em newsInsights ou marketCommentary.',\n      receivedKeys: Object.keys(rootIn || {})\n    }\n  }];\n}\n\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        400
+      ],
+      "id": "83695b25-b331-417b-8977-75fe51aea659",
+      "name": "Prepare for Summarize"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8dbeaeaf-6b50-41f3-8ef3-7a85bba89eff",
+              "name": "fullText",
+              "value": "={{ $json.fullText }}",
+              "type": "string"
+            },
+            {
+              "id": "7d575339-9abe-4d9d-b0d1-d9671fa2c2a9",
+              "name": "extractedAt",
+              "value": "={{ $json.extractedAt }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        352
+      ],
+      "id": "1c3ffc32-409c-4606-b491-17e053c486a1",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        496,
+        400
+      ],
+      "id": "69f5e031-682d-4647-9a05-2b993b072324",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "type": "SHA256",
+        "value": "={{ $json.fullText }}",
+        "dataPropertyName": "=content_hash"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        944,
+        352
+      ],
+      "id": "d360d18a-f0c0-4ade-b143-95a07eee78dc",
+      "name": "Crypto"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "raw_inputs",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "content_hash",
+              "condition": "eq",
+              "keyValue": "={{ $json.content_hash }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        352
+      ],
+      "id": "15ae31a6-a384-4ff3-89d0-938b487c8919",
+      "name": "Get many rows",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "40227d58-e670-4f52-84b7-fe21a3c06948",
+              "leftValue": "={{ $items(\"Get many rows\")[0].json.content_hash }}",
+              "rightValue": "={{ 0 }}",
+              "operator": {
+                "type": "string",
+                "operation": "empty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1392,
+        352
+      ],
+      "id": "d374308a-f071-4e9a-8213-7890f7f1c6fb",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "tableId": "raw_inputs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "captured_at",
+              "fieldValue": "={{ $('Crypto').item.json.extractedAt }}"
+            },
+            {
+              "fieldId": "blob_content",
+              "fieldValue": "={{ $('Crypto').item.json.fullText }}"
+            },
+            {
+              "fieldId": "content_hash",
+              "fieldValue": "={{ $('Crypto').item.json.content_hash }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1872,
+        496
+      ],
+      "id": "b2b142cc-26ae-42c9-9741-43525c0ba8e0",
+      "name": "Create a row2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1616,
+        496
+      ],
+      "id": "71594065-4a43-421a-a577-a15e64adb04d",
+      "name": "No Operation, do nothing2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analise o seguinte conteúdo e extraia inteligência de mercado.\n\n⚠️ ATENÇÃO: NÃO TRADUZA O CONTEÚDO! Mantenha todo texto original no idioma que está (provavelmente inglês).\n\n===CONTEÚDO===\n{{$json.blob_content}}\n===FIM DO CONTEÚDO===\n\nRetorne um JSON com a seguinte estrutura:\n\n{\n  \"tier\": \"TIER_1|TIER_2|TIER_3|NOISE\",\n  \"category\": \"\",\n  \"subcategory\": \"\",\n  \"time_sensitivity\": \"immediate|daily|weekly|evergreen\",\n  \"original_title\": \"\",\n  \"original_content\": \"\",\n  \"summary_pt\": \"\",\n  \"key_facts_pt\": [],\n  \"price_impact_score\": 0,\n  \"companies\": [],\n  \"regions\": [],\n  \"spot_prices\": {},\n  \"spreads\": {},\n  \"content_potential\": {},\n  \"extracted_data\": {}\n}\n\nOnde:\n\nTIER_1: Preços spot/futuros, trades executados, mudanças >1%, dados que afetam decisões imediatas\nTIER_2: Sentimento de mercado, análises de traders, tendências semanais, dados de produção/estoque\nTIER_3: Mudanças corporativas, expansões, políticas de longo prazo, contexto estratégico\nNOISE: Informação genérica, duplicada ou irrelevante para o mercado de minério\n\ncategory: Escolha entre:\n- \"price_update\": Atualizações de preço e índices\n- \"market_sentiment\": Opinião de traders e analistas  \n- \"trade_flow\": Vendas, compras, volumes negociados\n- \"supply_demand\": Produção, estoques, consumo\n- \"corporate_news\": Notícias de empresas\n- \"policy\": Mudanças regulatórias ou governamentais\n- \"technical\": Análise técnica, suporte/resistência\n\nsubcategory: Detalhe específico (ex: \"chinese_steel_production\", \"vale_expansion\", \"india_imports\")\n\ntime_sensitivity: \n- \"immediate\": Perde valor em horas\n- \"daily\": Relevante por 24-48h\n- \"weekly\": Importante por até 7 dias\n- \"evergreen\": Contexto de longo prazo\n\noriginal_title: Título ORIGINAL em INGLÊS (ou idioma nativo), NÃO TRADUZA\n\noriginal_content: Primeiras 500 caracteres do conteúdo ORIGINAL, NÃO TRADUZA\n\nsummary_pt: Seu resumo analítico em PORTUGUÊS, 2-3 frases capturando a essência e implicações\n\nkey_facts_pt: Array com 3-5 insights EM PORTUGUÊS sobre o que isso significa para o mercado\n\nprice_impact_score: 0-10 onde:\n- 0-3: Sem impacto direto em preços\n- 4-6: Pode influenciar sentimento\n- 7-9: Provável movimento de preços\n- 10: Mudança estrutural de mercado\n\ncompanies: Empresas mencionadas (manter nomes originais) [\"Vale\", \"Rio Tinto\", \"BHP\", etc]\n\nregions: Regiões afetadas (manter em inglês) [\"China\", \"Brazil\", \"India\", etc]\n\nspot_prices: Objeto com preços spot mencionados\n{\n  \"62Fe\": 104.90,\n  \"65Fe\": 117.20,\n  \"platts_62\": 104.60\n}\n\nspreads: Objeto com spreads mencionados\n{\n  \"65/62\": 12.30,\n  \"Nov/Dec\": 0.75,\n  \"lump_premium\": 0.127\n}\n\ncontent_potential: Avalie potencial para cada plataforma\n{\n  \"linkedin\": 8,  // 0-10: post técnico detalhado\n  \"twitter\": 6,   // 0-10: thread com dados\n  \"instagram\": 4, // 0-10: visual/infográfico\n  \"whatsapp\": 7,  // 0-10: bullet points rápidos\n  \"blog\": 9       // 0-10: análise profunda\n}\n\nextracted_data: Dados estruturados adicionais específicos da notícia\n{\n  \"volumes_mt\": 170000,\n  \"price_change_pct\": -1.25,\n  \"production_mt\": 2010000,\n  \"inventory_change_pct\": 4.41\n}\n\nREGRAS FUNDAMENTAIS:\n1. original_title e original_content devem estar EXATAMENTE como no original (inglês)\n2. NÃO TRADUZA nomes de empresas, produtos ou termos técnicos\n3. Use português APENAS em summary_pt e key_facts_pt\n4. Se não houver informação para um campo, use null\n5. Preserve números e unidades exatamente como estão\n6. Quotes e citações devem permanecer no idioma original\n\n⚠️ LEMBRE-SE: A tradução será feita em outra etapa do processo. Aqui você apenas classifica e analisa.",
+        "options": {
+          "systemMessage": "=Você é um analista especializado em mercado de minério de ferro com 20 anos de experiência cobrindo commodities para traders brasileiros e internacionais.\n\nSua expertise inclui:\n- Dinâmica de oferta/demanda China-Brasil\n- Estrutura de preços spot, futuros e spreads\n- Impacto de políticas chinesas no mercado global\n- Movimentos estratégicos de Vale, Rio Tinto, BHP e Fortescue\n- Sazonalidade e padrões históricos do mercado\n\nSua missão é classificar e extrair inteligência de notícias brutas para criar conteúdo de alto valor para profissionais do setor via redes sociais e blog.\n\nREGRAS CRÍTICAS:\n1. NUNCA traduza o conteúdo original - mantenha SEMPRE no idioma nativo\n2. Extraia dados e classifique, mas preserve o texto original exatamente como está\n3. Use português APENAS para seus comentários analíticos (summary, key_facts)\n4. Títulos, quotes e conteúdo original devem permanecer em inglês\n\nIMPORTANTE: \n- Seja preciso com números e datas\n- Identifique SEMPRE as implicações práticas da notícia\n- Conecte eventos com tendências maiores\n- NÃO TRADUZA - a tradução será feita em outra etapa\n- Priorize informação acionável sobre genérica\n\nVocê responde SEMPRE em JSON estruturado válido."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1968,
+        -448
+      ],
+      "id": "b3b6fa86-9f92-4f39-9031-31f548659331",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-3-7-sonnet-20250219",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 3.7"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1968,
+        -224
+      ],
+      "id": "b3f16de2-2af6-4eae-b029-25c5eef3851d",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "fjN5QtG5xAcoiOWE",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        2096,
+        -224
+      ],
+      "id": "46550a11-b7e1-4347-be55-8f7e7004694f",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        752,
+        -592
+      ],
+      "id": "232f4e6c-b561-496a-8053-66f3a9bddd5a",
+      "name": "Date & Time1",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "raw_inputs",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "processou",
+              "condition": "is",
+              "keyValue": "null"
+            },
+            {
+              "keyName": "captured_at",
+              "condition": "gt",
+              "keyValue": "={{ $json.dateStart }}"
+            },
+            {
+              "keyName": "captured_at",
+              "condition": "lt",
+              "keyValue": "={{ $json.dateEnd }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -592
+      ],
+      "id": "0c3ecc6a-861c-492b-8f62-200e14ceef95",
+      "name": "Get many rows1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pega a data de entrada\nconst inputDate = new Date($input.item.json.currentDate);\n\n// Início do dia em UTC (00:00:00)\nconst startOfDay = new Date(inputDate);\nstartOfDay.setUTCHours(0, 0, 0, 0);\n\n// Fim do dia em UTC (23:59:59.999)\nconst endOfDay = new Date(inputDate);\nendOfDay.setUTCHours(23, 59, 59, 999);\n\nreturn {\n  json: {\n    dateStart: startOfDay.toISOString(),\n    dateEnd: endOfDay.toISOString()\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        -592
+      ],
+      "id": "ab1ab044-2763-42a6-8448-708bb8bca734",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1424,
+        -592
+      ],
+      "id": "7437a8b4-b5d6-4649-b285-ca3363fb541d",
+      "name": "Loop Over Items2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "64d51369-2e82-4be9-a1e8-4f4af6a164fa",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "7f0f6f9a-70f3-485b-9376-555b1768566b",
+              "name": "captured_at",
+              "value": "={{ $json.captured_at }}",
+              "type": "string"
+            },
+            {
+              "id": "ef9bdd65-e341-4c34-80bd-f374ac0c51cd",
+              "name": "processed",
+              "value": "={{ $json.processed }}",
+              "type": "boolean"
+            },
+            {
+              "id": "74083e65-a4e2-4755-838e-f1d37e2ba364",
+              "name": "blob_content",
+              "value": "={{ $json.blob_content }}",
+              "type": "string"
+            },
+            {
+              "id": "31a1989b-6bd4-4bdd-b4c6-509637fd2b4b",
+              "name": "content_hash",
+              "value": "={{ $json.content_hash }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1744,
+        -448
+      ],
+      "id": "731c475d-1e2f-403e-b46f-49ef94c06c11",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// CODE NODE: PROCESSADOR DE OUTPUT DO AI AGENT\n// Versão: 4.0 - Tratamento robusto de JSON com smart quotes\n// WF1 - FEED SUPABASE BLOGGING\n// ============================================\n\n// FUNÇÃO: Sanitiza strings com caracteres problemáticos\nfunction sanitizeJsonString(str) {\n  if (!str) return str;\n  \n  // 1. Substituir smart quotes por aspas normais\n  str = str\n    .replace(/[\\u201C\\u201D\\u201E\\u201F\\u2033\\u2036]/g, '\"')  // Smart double quotes\n    .replace(/[\\u2018\\u2019\\u201A\\u201B\\u2032\\u2035]/g, \"'\")  // Smart single quotes\n    .replace(/[\\u00AB\\u00BB]/g, '\"')  // Guillemets\n    .replace(/[\\u2014\\u2013]/g, '-')  // Em dash, en dash\n    .replace(/\\u2026/g, '...')  // Ellipsis\n    .replace(/\\u00A0/g, ' ');  // Non-breaking space\n  \n  // 2. Remover caracteres de controle\n  str = str.replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '');\n  \n  return str;\n}\n\n// FUNÇÃO: Extrai JSON do output do AI Agent\nfunction extractJsonFromOutput(output) {\n  if (!output) {\n    throw new Error('Output do AI Agent está vazio');\n  }\n  \n  // 1. Sanitizar primeiro (smart quotes, etc)\n  let cleaned = sanitizeJsonString(output);\n  \n  // 2. Remover markdown code blocks\n  cleaned = cleaned\n    .replace(/^```json\\s*\\n?/gi, '')\n    .replace(/^```\\s*\\n?/gi, '')\n    .replace(/\\n?```\\s*$/gi, '')\n    .trim();\n  \n  // 3. Encontrar o JSON se não começa com { ou [\n  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {\n    const jsonMatch = cleaned.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      cleaned = jsonMatch[0];\n    } else {\n      throw new Error('Não foi possível encontrar JSON válido no output');\n    }\n  }\n  \n  // 4. Primeira tentativa de parse\n  try {\n    return JSON.parse(cleaned);\n  } catch (firstError) {\n    console.log('Primeira tentativa falhou:', firstError.message);\n  }\n  \n  // 5. Tentar corrigir newlines não escapados dentro de strings\n  let fixedJson = cleaned;\n  for (let i = 0; i < 5; i++) {\n    fixedJson = fixedJson.replace(/\"([^\"]*?)\\n([^\"]*?)\"/g, function(match, p1, p2) {\n      return '\"' + p1 + '\\\\n' + p2 + '\"';\n    });\n  }\n  \n  // 6. Segunda tentativa\n  try {\n    console.log('Parse bem sucedido após correção de newlines');\n    return JSON.parse(fixedJson);\n  } catch (secondError) {\n    console.log('Segunda tentativa falhou:', secondError.message);\n  }\n  \n  // 7. Última tentativa: remover todas as quebras de linha\n  let lastResort = cleaned\n    .replace(/\\r\\n/g, ' ')\n    .replace(/\\n/g, ' ')\n    .replace(/\\r/g, ' ')\n    .replace(/\\t/g, ' ')\n    .replace(/\\s+/g, ' ');\n  \n  try {\n    console.log('Parse bem sucedido após remover quebras de linha');\n    return JSON.parse(lastResort);\n  } catch (finalError) {\n    console.error('Todas as tentativas falharam');\n    console.error('Erro final:', finalError.message);\n    throw new Error('Falha ao fazer parse do JSON: ' + finalError.message);\n  }\n}\n\n// PROCESSAMENTO PRINCIPAL\nconst agentOutput = $json.output;\n\nlet result;\ntry {\n  result = extractJsonFromOutput(agentOutput);\n} catch (error) {\n  throw new Error('Erro ao fazer parse do JSON: ' + error.message);\n}\n\n// Adiciona o raw_id (do node anterior que buscou da raw_inputs)\nresult.raw_id = $('Edit Fields3').first().json.id;\n\n// Adiciona timestamp\nresult.created_at = new Date().toISOString();\n\n// Remove campos null ou vazios para economizar espaço\nObject.keys(result).forEach(function(key) {\n  if (result[key] === null || result[key] === '') {\n    delete result[key];\n  }\n  // Remove arrays vazios também\n  if (Array.isArray(result[key]) && result[key].length === 0) {\n    delete result[key];\n  }\n  // Remove objetos vazios\n  if (typeof result[key] === 'object' && !Array.isArray(result[key]) && result[key] !== null && Object.keys(result[key]).length === 0) {\n    delete result[key];\n  }\n});\n\n// Validações importantes\nif (!result.tier) {\n  throw new Error('Tier é obrigatório');\n}\n\nif (!result.category) {\n  throw new Error('Category é obrigatório');\n}\n\n// Ajusta o original_content para não exceder limite (se necessário)\nif (result.original_content && result.original_content.length > 1000) {\n  result.original_content = result.original_content.substring(0, 997) + '...';\n}\n\n// Retorna o objeto limpo e pronto para inserir\nreturn result;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2320,
+        -448
+      ],
+      "id": "e5a614f9-0c9a-4184-806c-8bab9620acf1",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "raw_inputs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Edit Fields3').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processou",
+              "fieldValue": "y"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2768,
+        -192
+      ],
+      "id": "6e42b2b5-f13d-4fa1-8b70-19dc27c1cff1",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "market_intelligence",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "raw_id",
+              "fieldValue": "={{ $json.raw_id }}"
+            },
+            {
+              "fieldId": "tier",
+              "fieldValue": "={{ $json.tier }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "fieldId": "subcategory",
+              "fieldValue": "={{ $json.subcategory }}"
+            },
+            {
+              "fieldId": "time_sensitivity",
+              "fieldValue": "={{ $json.time_sensitivity }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.original_title }}"
+            },
+            {
+              "fieldId": "price_impact_score",
+              "fieldValue": "={{ $json.price_impact_score }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $('Edit Fields3').item.json.captured_at }}"
+            },
+            {
+              "fieldId": "key_facts",
+              "fieldValue": "={{ $json.key_facts_pt }}"
+            },
+            {
+              "fieldId": "expires_at",
+              "fieldValue": "={{ $('Edit Fields3').item.json.captured_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2544,
+        -448
+      ],
+      "id": "a06d8116-0565-4bba-8329-34929df5a707",
+      "name": "Create a row3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        -640
+      ],
+      "id": "febbae69-4ec4-49f8-82e4-5ab50d8d8a28",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {
+        "type": "SHA256",
+        "value": "={{ $json.blob_content.article_text }}",
+        "dataPropertyName": "content_hash"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -144
+      ],
+      "id": "a86a38f2-43f6-473d-93a7-ebe7866346e6",
+      "name": "Crypto1"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -848,
+        -144
+      ],
+      "id": "0437eab0-06b5-4f64-b150-ac97851efed0",
+      "name": "Telegram Trigger",
+      "webhookId": "7d8a1524-c7ba-44c0-9d9d-a26cdb114987",
+      "credentials": {
+        "telegramApi": {
+          "id": "gCgSPw1bs4wrFJoo",
+          "name": "news_feeding_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "type": "SHA256",
+        "value": "={{ $json.text }}",
+        "dataPropertyName": "content_hash"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        32,
+        -608
+      ],
+      "id": "86d9fb4d-d399-4d7b-a216-4e3bf4b51773",
+      "name": "Crypto2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Operation, do nothing": {
+      "main": [
+        [
+          {
+            "node": "Date & Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Crypto1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Date & Time1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Date & Time1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Crypto2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run an Actor and get dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fitler by Channel": {
+      "main": [
+        [
+          {
+            "node": "Prepare for Summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run an Actor and get dataset": {
+      "main": [
+        [
+          {
+            "node": "Fitler by Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for Summarize": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [
+          {
+            "node": "Date & Time1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Crypto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crypto": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Create a row2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Operation, do nothing2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Get many rows1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items2": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Create a row3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row3": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crypto1": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crypto2": {
+      "main": [
+        [
+          {
+            "node": "Create a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "a282a5ed-ef1a-422e-83dc-56e2a6350581",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "TgZ3HSnbbSVHsIzD",
+  "tags": []
+}

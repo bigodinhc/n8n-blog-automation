@@ -1,0 +1,899 @@
+{
+  "name": "[BLOG] 7.2 IMAGE CALLBACK",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trigger-img-callback",
+      "name": "TRIGGER IMAGE CALLBACK",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        192,
+        16
+      ],
+      "webhookId": "image-callback-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const callbackData = $json.callback_query.data;\nconst messageId = $json.callback_query.message.message_id;\nconst chatId = $json.callback_query.message.chat.id;\n\n// Formato: img_{action}_{session_id}\nconst parts = callbackData.split('_');\nconst action = parts[1]; // approve, redo, cancel\nconst sessionId = parts.slice(2).join('_');\n\nreturn {\n  json: {\n    callback_data: callbackData,\n    action: action,\n    session_id: sessionId,\n    message_id: messageId,\n    chat_id: chatId,\n    is_approve: action === 'approve',\n    is_redo: action === 'redo',\n    is_cancel: action === 'cancel'\n  }\n};"
+      },
+      "id": "extract-img-data",
+      "name": "EXTRAIR DADOS IMG",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $('TRIGGER IMAGE CALLBACK').item.json.callback_query.id }}",
+        "additionalFields": {}
+      },
+      "id": "answer-img-callback",
+      "name": "RESPONDER CALLBACK",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        16
+      ],
+      "webhookId": "b75baf56-c0a9-424c-b13c-34a09ea0b30a",
+      "credentials": {
+        "telegramApi": {
+          "id": "kiPLWLjR5rez4GQZ",
+          "name": "SocialMediaBot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('EXTRAIR DADOS IMG').first().json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "approve",
+                    "id": "661952a5-dca2-498e-b2d2-ac4e752e663d"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('EXTRAIR DADOS IMG').first().json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "redo",
+                    "id": "57ee21e3-1dcb-4164-9714-d26c0bd0f070"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('EXTRAIR DADOS IMG').first().json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "cancel",
+                    "id": "dc35f81f-9b72-4c3a-9062-840eb0b523c3"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-action",
+      "name": "QUAL ACAO?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "social_media_sessions",
+        "limit": 1,
+        "filterType": "string",
+        "filterString": "=session_id=eq.{{ $('EXTRAIR DADOS IMG').first().json.session_id }}"
+      },
+      "id": "buscar-sessao-img",
+      "name": "BUSCAR SESSAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "social_media_sessions",
+        "filterType": "string",
+        "filterString": "=session_id=eq.{{ $('EXTRAIR DADOS IMG').first().json.session_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_approval"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-aprovado",
+      "name": "ATUALIZAR APROVADO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        -208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $('BUSCAR SESSAO').first().json;\nconst imgData = $('EXTRAIR DADOS IMG').first().json;\n\nconst twitter = typeof session.twitter_content === 'string' ? JSON.parse(session.twitter_content) : session.twitter_content;\nconst linkedin = typeof session.linkedin_content === 'string' ? JSON.parse(session.linkedin_content) : session.linkedin_content;\nconst instagram = typeof session.instagram_content === 'string' ? JSON.parse(session.instagram_content) : session.instagram_content;\n\nconst truncate = (text, max) => text && text.length > max ? text.substring(0, max-3) + '...' : (text || '');\n\nconst preview = `\\u2705 *IMAGEM APROVADA!*\\n\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\n\\n\\ud83d\\udcf1 *PREVIEW REDES SOCIAIS*\\n\\n\\ud83d\\udcf0 *Post:* ${truncate(session.wordpress_url ? session.wordpress_url.split('/').pop() : 'Post', 60)}\\n\\ud83d\\udd17 ${session.wordpress_url}\\n\\ud83d\\uddbc Imagem: \\u2705 Aprovada\\n\\n\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\n\\ud83d\\udc26 *TWITTER/X (Thread 4 tweets):*\\n\\n1\\ufe0f\\u20e3 ${twitter.tweet1_hook}\\n\\n2\\ufe0f\\u20e3 ${twitter.tweet2_contexto}\\n\\n3\\ufe0f\\u20e3 ${twitter.tweet3_brasil}\\n\\n4\\ufe0f\\u20e3 ${twitter.tweet4_cta}\\n\\n\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\n\\ud83d\\udcbc *LINKEDIN:*\\n\\n${truncate(linkedin.post, 600)}\\n\\n\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\n\\ud83d\\udcf8 *INSTAGRAM:*\\n\\n${truncate(instagram.caption, 400)}\\n\\n\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501`;\n\nconst sessionId = session.session_id;\n\nconst replyMarkup = {\n  inline_keyboard: [\n    [{ text: '\\u2705 PUBLICAR TODAS', callback_data: `social_all_${sessionId}` }],\n    [{ text: '\\ud83d\\udc26 So Twitter', callback_data: `social_twitter_${sessionId}` }, { text: '\\ud83d\\udcbc So LinkedIn', callback_data: `social_linkedin_${sessionId}` }],\n    [{ text: '\\ud83d\\udcf8 So Instagram', callback_data: `social_instagram_${sessionId}` }, { text: '\\u274c Cancelar', callback_data: `social_cancel_${sessionId}` }]\n  ]\n};\n\nreturn {\n  json: {\n    chat_id: imgData.chat_id,\n    text: preview,\n    parse_mode: 'Markdown',\n    reply_markup: replyMarkup,\n    message_id: imgData.message_id\n  }\n};"
+      },
+      "id": "preparar-preview-texto",
+      "name": "PREPARAR PREVIEW TEXTO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/editMessageCaption",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: String($('PREPARAR PREVIEW TEXTO').first().json.chat_id), message_id: $('PREPARAR PREVIEW TEXTO').first().json.message_id, caption: '\\u2705 *IMAGEM APROVADA*\\n\\nAguarde o preview do conteudo...', parse_mode: 'Markdown' }) }}",
+        "options": {}
+      },
+      "id": "editar-msg-aprovado",
+      "name": "EDITAR MSG APROVADO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1792,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: String($('PREPARAR PREVIEW TEXTO').first().json.chat_id), text: $('PREPARAR PREVIEW TEXTO').first().json.text, parse_mode: $('PREPARAR PREVIEW TEXTO').first().json.parse_mode, reply_markup: $('PREPARAR PREVIEW TEXTO').first().json.reply_markup }) }}",
+        "options": {}
+      },
+      "id": "enviar-preview-texto",
+      "name": "ENVIAR PREVIEW TEXTO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2016,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "social_media_sessions",
+        "limit": 1,
+        "filterType": "string",
+        "filterString": "=session_id=eq.{{ $('EXTRAIR DADOS IMG').first().json.session_id }}"
+      },
+      "id": "buscar-sessao-redo",
+      "name": "BUSCAR SESSAO REDO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "content_posts",
+        "limit": 1,
+        "filterType": "string",
+        "filterString": "=id=eq.{{ $('BUSCAR SESSAO REDO').first().json.post_id }}"
+      },
+      "id": "buscar-post-redo",
+      "name": "BUSCAR POST",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/editMessageCaption",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: String($('EXTRAIR DADOS IMG').first().json.chat_id), message_id: $('EXTRAIR DADOS IMG').first().json.message_id, caption: '\\ud83d\\udd04 *GERANDO NOVA IMAGEM...*\\n\\nAguarde alguns segundos...', parse_mode: 'Markdown' }) }}",
+        "options": {}
+      },
+      "id": "notificar-gerando",
+      "name": "NOTIFICAR GERANDO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1568,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const post = $('BUSCAR POST').first().json;\nconst session = $('BUSCAR SESSAO REDO').first().json;\nconst imgData = $('EXTRAIR DADOS IMG').first().json;\n\nreturn {\n  json: {\n    post_id: post.id,\n    title: post.title,\n    content: post.content,\n    session_id: session.session_id,\n    message_id: imgData.message_id,\n    chat_id: imgData.chat_id\n  }\n};"
+      },
+      "id": "preparar-redo",
+      "name": "PREPARAR REDO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=ARTICLE TITLE: {{ $json.title }}\n\nARTICLE SUMMARY:\n{{ $json.content.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').substring(0, 800) }}\n\nIMPORTANT: Create a COMPLETELY DIFFERENT image concept from the previous one. Try a different scene, angle, or subject.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are an expert AI image prompt engineer for high-engagement Twitter/X posts about commodities and iron ore markets.\n\nGOAL: Create a BOLD, ATTENTION-GRABBING image prompt that makes people STOP scrolling.\n\nSTYLE REQUIREMENTS:\n1. HIGH IMPACT visual - dramatic angles, strong contrasts, dynamic composition\n2. Bold color palette: deep reds, industrial oranges, metallic silvers against dark backgrounds\n3. Cinematic lighting: dramatic shadows, golden hour, industrial atmospheres with dust/steam\n4. Energy and URGENCY in every element\n5. Works perfectly at Twitter preview size (1200x675px)\n\nSCENE IDEAS (choose based on context):\n- Massive haul trucks with dramatic dust clouds at sunset\n- Bulk carriers being loaded with dramatic spray of iron ore\n- Red ore cascading from conveyors with industrial backlighting\n- Giant stockpile yards with dramatic storm clouds approaching\n- Port terminals at night with industrial lighting\n- Close-up of raw iron ore chunks with dramatic macro lighting\n\nABSOLUTE RULES:\n- NO text, logos, charts, graphs, or data visualizations\n- NO human faces or recognizable people\n- NO abstract or conceptual imagery\n- ONLY real industrial photography style\n\nOUTPUT: Single English paragraph prompt (2-3 sentences), no explanations."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "ai-prompt-redo",
+      "name": "AI PROMPT NOVA IMAGEM",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1968,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {
+          "maxTokens": 500
+        }
+      },
+      "id": "lm-redo",
+      "name": "LM Redo",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1904,
+        208
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "TlBHX33f0SZpyHLo",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $('PREPARAR REDO').first().json;\nconst aiResponse = $json;\n\nconst imagePrompt = aiResponse.text || aiResponse.output || aiResponse.response || '';\n\nconst timestamp = Date.now();\nconst sanitizedTitle = inputData.title.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9\\s-]/g, '').replace(/\\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 40);\n\nconst imageFilename = `twitter-${sanitizedTitle}-${timestamp}.png`;\nconst storagePath = `twitter/${inputData.post_id}/${imageFilename}`;\n\nreturn {\n  json: {\n    post_id: inputData.post_id,\n    title: inputData.title,\n    session_id: inputData.session_id,\n    message_id: inputData.message_id,\n    chat_id: inputData.chat_id,\n    twitter_image_prompt: imagePrompt,\n    twitter_image_filename: imageFilename,\n    twitter_storage_path: storagePath\n  }\n};"
+      },
+      "id": "preparar-gemini-redo",
+      "name": "PREPARAR GEMINI REDO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "models/gemini-3-pro-image-preview"
+        },
+        "prompt": "={{ $json.twitter_image_prompt }}",
+        "options": {
+          "binaryPropertyOutput": "twitter_image"
+        }
+      },
+      "id": "gerar-imagem-redo",
+      "name": "GERAR IMAGEM REDO",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        0
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "VStJZ2Am1t3kqbKB",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://pbhvhfahcvgmgjvuhwuk.supabase.co/storage/v1/object/social-images/{{ $('PREPARAR GEMINI REDO').first().json.twitter_storage_path }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "image/png"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiaHZoZmFoY3ZnbWdqdnVod3VrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjMzMTYwNywiZXhwIjoyMDc3OTA3NjA3fQ.GB86JqMN-NKCePxNToYlKlbFB98BSNAbhXa1dFtidIw"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "twitter_image",
+        "options": {}
+      },
+      "id": "upload-imagem-redo",
+      "name": "UPLOAD IMAGEM REDO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2688,
+        0
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const prevData = $('PREPARAR GEMINI REDO').first().json;\nconst storagePath = prevData.twitter_storage_path;\n\nconst twitterImageUrl = `https://pbhvhfahcvgmgjvuhwuk.supabase.co/storage/v1/object/public/social-images/${storagePath}`;\n\nreturn {\n  json: {\n    post_id: prevData.post_id,\n    title: prevData.title,\n    session_id: prevData.session_id,\n    message_id: prevData.message_id,\n    chat_id: prevData.chat_id,\n    twitter_image_url: twitterImageUrl,\n    twitter_image_prompt: prevData.twitter_image_prompt\n  }\n};"
+      },
+      "id": "construir-url-redo",
+      "name": "CONSTRUIR URL REDO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2912,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "social_media_sessions",
+        "filterType": "string",
+        "filterString": "=session_id=eq.{{ $json.session_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "twitter_image_url",
+              "fieldValue": "={{ $json.twitter_image_url }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-sessao-redo",
+      "name": "ATUALIZAR SESSAO REDO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3136,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/sendPhoto",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: String($('CONSTRUIR URL REDO').first().json.chat_id), photo: $('CONSTRUIR URL REDO').first().json.twitter_image_url, caption: '\\ud83d\\uddbc *NOVA IMAGEM TWITTER*\\n\\n\\ud83d\\udcf0 ' + $('CONSTRUIR URL REDO').first().json.title.substring(0, 60) + '\\n\\n_Aprove a imagem ou solicite uma nova._', parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '\\u2705 Aprovar Imagem', callback_data: 'img_approve_' + $('CONSTRUIR URL REDO').first().json.session_id }], [{ text: '\\ud83d\\udd04 Refazer Imagem', callback_data: 'img_redo_' + $('CONSTRUIR URL REDO').first().json.session_id }], [{ text: '\\u274c Cancelar Tudo', callback_data: 'img_cancel_' + $('CONSTRUIR URL REDO').first().json.session_id }]] } }) }}",
+        "options": {}
+      },
+      "id": "enviar-nova-imagem",
+      "name": "ENVIAR NOVA IMAGEM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/deleteMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: String($('EXTRAIR DADOS IMG').first().json.chat_id), message_id: $('EXTRAIR DADOS IMG').first().json.message_id }) }}",
+        "options": {}
+      },
+      "id": "deletar-msg-antiga",
+      "name": "DELETAR MSG ANTIGA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3584,
+        0
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "social_media_sessions",
+        "filterType": "string",
+        "filterString": "=session_id=eq.{{ $('EXTRAIR DADOS IMG').first().json.session_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "cancelled"
+            },
+            {
+              "fieldId": "decision",
+              "fieldValue": "cancel"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-cancelado",
+      "name": "ATUALIZAR CANCELADO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/editMessageCaption",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: String($('EXTRAIR DADOS IMG').first().json.chat_id), message_id: $('EXTRAIR DADOS IMG').first().json.message_id, caption: '\\u274c *PUBLICACAO CANCELADA*\\n\\nNenhum conteudo foi publicado.', parse_mode: 'Markdown' }) }}",
+        "options": {}
+      },
+      "id": "notificar-cancelado",
+      "name": "NOTIFICAR CANCELADO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "EXTRAIR DADOS IMG": {
+      "main": [
+        [
+          {
+            "node": "RESPONDER CALLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RESPONDER CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "QUAL ACAO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUAL ACAO?": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BUSCAR SESSAO REDO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ATUALIZAR CANCELADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR APROVADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR APROVADO": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR PREVIEW TEXTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR PREVIEW TEXTO": {
+      "main": [
+        [
+          {
+            "node": "EDITAR MSG APROVADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EDITAR MSG APROVADO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR PREVIEW TEXTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR SESSAO REDO": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR POST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR POST": {
+      "main": [
+        [
+          {
+            "node": "NOTIFICAR GERANDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NOTIFICAR GERANDO": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR REDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR REDO": {
+      "main": [
+        [
+          {
+            "node": "AI PROMPT NOVA IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LM Redo": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI PROMPT NOVA IMAGEM",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI PROMPT NOVA IMAGEM": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR GEMINI REDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR GEMINI REDO": {
+      "main": [
+        [
+          {
+            "node": "GERAR IMAGEM REDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GERAR IMAGEM REDO": {
+      "main": [
+        [
+          {
+            "node": "UPLOAD IMAGEM REDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPLOAD IMAGEM REDO": {
+      "main": [
+        [
+          {
+            "node": "CONSTRUIR URL REDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONSTRUIR URL REDO": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR SESSAO REDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR SESSAO REDO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR NOVA IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR NOVA IMAGEM": {
+      "main": [
+        [
+          {
+            "node": "DELETAR MSG ANTIGA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR CANCELADO": {
+      "main": [
+        [
+          {
+            "node": "NOTIFICAR CANCELADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TRIGGER IMAGE CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "EXTRAIR DADOS IMG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "e63730b2-8da8-4d27-b355-374bdf51b057",
+  "meta": {
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "t4M4Qav7y3860Bje",
+  "tags": []
+}

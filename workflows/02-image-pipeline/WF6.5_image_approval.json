@@ -1,0 +1,1086 @@
+{
+  "name": "[BLOG] 6.5 IMAGE APPROVAL HANDLER",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// telegramTrigger fornece callback_query diretamente\nconst callbackQuery = $json.callback_query;\n\nif (!callbackQuery) {\n  return { action: 'invalid', error: 'No callback_query' };\n}\n\nconst callbackData = callbackQuery.data || '';\nconst [action, postId] = callbackData.split('_');\nconst messageId = callbackQuery.message?.message_id;\nconst chatId = callbackQuery.message?.chat?.id;\nconst callbackId = callbackQuery.id;\n\nreturn {\n  action: action,\n  post_id: postId,\n  message_id: messageId,\n  chat_id: chatId,\n  callback_id: callbackId,\n  raw_data: callbackData\n};"
+      },
+      "id": "parse-callback",
+      "name": "PARSE CALLBACK DATA",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -16,
+        -400
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8038861116:AAFqHOnzxIxteB4t73Ya9QO9MPW_y8HzCaQ/answerCallbackQuery",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "callback_query_id",
+              "value": "={{ $json.callback_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "answer-callback",
+      "name": "ANSWER CALLBACK QUERY",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        288,
+        -400
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9e83a49d-eb9e-40e8-9105-41c92e84ca32",
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "691e768f-84d1-4e16-8460-5f2151ba0dea",
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6f0fb9b4-8f8d-46a1-b468-46eec36d4f8a",
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-action",
+      "name": "QUAL ACAO?",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        528,
+        -416
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "vw_blog_drafts",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('PARSE CALLBACK DATA').item.json.post_id }}"
+            }
+          ]
+        }
+      },
+      "id": "buscar-dados-post-pub",
+      "name": "BUSCAR DADOS PUBLISH",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        832,
+        -656
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "post_images",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PARSE CALLBACK DATA').item.json.post_id }}"
+            },
+            {
+              "keyName": "platform",
+              "condition": "eq",
+              "keyValue": "editorial"
+            }
+          ]
+        }
+      },
+      "id": "buscar-imagem-aprovada",
+      "name": "BUSCAR IMAGEM APROVADA",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1056,
+        -656
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.image_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "download-imagem-supabase",
+      "name": "DOWNLOAD IMAGEM SUPABASE",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1280,
+        -656
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// PREPARAR UPLOAD WP - Preservando Binary Data\n// O binary data vem do node DOWNLOAD IMAGEM SUPABASE\n\nconst postData = $('BUSCAR DADOS PUBLISH').item.json;\nconst imageData = $('BUSCAR IMAGEM APROVADA').item.json;\n\n// Pega o binary data do node de download\nconst downloadItem = $('DOWNLOAD IMAGEM SUPABASE').item;\nconst binaryData = downloadItem.binary;\n\n// Gerar nome de arquivo SEO-friendly\nconst filename = postData.title\n  .toLowerCase()\n  .normalize('NFD')\n  .replace(/[\\u0300-\\u036f]/g, '')\n  .replace(/[^a-z0-9\\s-]/g, '')\n  .replace(/\\s+/g, '-')\n  .replace(/-+/g, '-')\n  .replace(/^-|-$/g, '')\n  .substring(0, 60) + '.png';\n\n// Retorna JSON + Binary Data preservado\nreturn {\n  json: {\n    filename: filename,\n    title: postData.title,\n    post_id: postData.id,\n    image_record_id: imageData.id,\n    supabase_image_url: imageData.image_url\n  },\n  binary: binaryData  // IMPORTANTE: Preserva o binary data!\n};"
+      },
+      "id": "preparar-upload-wp",
+      "name": "PREPARAR UPLOAD WP",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1504,
+        -656
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mineralstradingdaily.com.br/wp-json/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Disposition",
+              "value": "=attachment; filename=\"{{ $json.filename }}\""
+            },
+            {
+              "name": "Content-Type",
+              "value": "image/png"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "upload-imagem-wp",
+      "name": "UPLOAD IMAGEM WP",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1728,
+        -656
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "RDQ4iINKuueb9XxF",
+          "name": "WP Upload"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://mineralstradingdaily.com.br/wp-json/wp/v2/media/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alt_text",
+              "value": "={{ $('PREPARAR UPLOAD WP').item.json.title }}"
+            },
+            {
+              "name": "title",
+              "value": "={{ $('PREPARAR UPLOAD WP').item.json.title }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "definir-alt-imagem",
+      "name": "DEFINIR ALT IMAGEM",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1952,
+        -656
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "RDQ4iINKuueb9XxF",
+          "name": "WP Upload"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const postData = $('BUSCAR DADOS PUBLISH').item.json;\nconst imageData = $('BUSCAR IMAGEM APROVADA').item.json;\nconst wpMediaData = $('UPLOAD IMAGEM WP').item.json;\nconst prepUpload = $('PREPARAR UPLOAD WP').item.json;\n\n// Mapeamento de categorias e tags\nconst WP_CATEGORIES = {'Breaking News': 1, 'Iron Ore News': 163, 'Steel News': 175, 'Metals News': 176};\nconst WP_TAGS = {'iron-ore': 165, 'iodex': 166, 'china': 167, 'brazil-miners': 168, 'global-miners': 169, 'freight': 170, 'steel': 171, 'market-analysis': 172, 'price-alert': 173, 'weekly-report': 174};\n\n// Limpar HTML (sem adicionar imagem - vai ser featured_media)\nlet cleanHtml = postData.content_html || '';\ncleanHtml = cleanHtml.replace(/<div class=\"post-metadata\">[\\s\\S]*?<\\/div>/gi, '').trim();\n\n// Determinar categorias\nconst wpCategoryNames = [];\nconst dbCategories = Array.isArray(postData.categories) ? postData.categories : [];\nif (postData.tier === 'TIER_1') wpCategoryNames.push('Breaking News');\ndbCategories.forEach(cat => {\n  const catLower = cat.toLowerCase();\n  if (catLower.includes('china') || catLower.includes('demanda') || catLower.includes('preco') || catLower.includes('spot')) {\n    if (!wpCategoryNames.includes('Iron Ore News')) wpCategoryNames.push('Iron Ore News');\n  }\n  if (catLower.includes('siderur') || catLower.includes('steel') || catLower.includes('aco')) {\n    if (!wpCategoryNames.includes('Steel News')) wpCategoryNames.push('Steel News');\n  }\n});\nif (wpCategoryNames.length === 0) wpCategoryNames.push('Iron Ore News');\nconst wpCategoryIds = wpCategoryNames.map(name => WP_CATEGORIES[name]).filter(id => id);\n\n// Determinar tags\nconst wpTagSlugs = [];\nconst dbTags = Array.isArray(postData.tags) ? postData.tags : [];\ndbTags.forEach(tag => {\n  const tagLower = tag.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n  if (tagLower.includes('minerio') || tagLower.includes('iron')) wpTagSlugs.push('iron-ore');\n  if (tagLower.includes('iodex') || tagLower.includes('platts')) wpTagSlugs.push('iodex');\n  if (tagLower.includes('china')) wpTagSlugs.push('china');\n  if (tagLower.includes('vale') || tagLower.includes('csn')) wpTagSlugs.push('brazil-miners');\n  if (tagLower.includes('bhp') || tagLower.includes('rio')) wpTagSlugs.push('global-miners');\n});\nif (wpTagSlugs.length === 0) wpTagSlugs.push('iron-ore');\nconst wpTagIds = [...new Set(wpTagSlugs)].map(slug => WP_TAGS[slug]).filter(id => id);\n\n// Gerar slug\nconst slug = postData.slug || postData.title.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50);\n\nreturn {\n  post_id: postData.id,\n  wp_title: postData.title,\n  wp_content: cleanHtml,\n  wp_slug: slug,\n  wp_categories: wpCategoryIds,\n  wp_tags: wpTagIds,\n  wp_category_names: wpCategoryNames,\n  wp_tag_slugs: [...new Set(wpTagSlugs)],\n  featured_media_id: wpMediaData.id,\n  wp_image_url: wpMediaData.source_url || wpMediaData.guid?.rendered,\n  supabase_image_url: imageData.image_url,\n  image_record_id: prepUpload.image_record_id\n};"
+      },
+      "id": "preparar-conteudo-wp",
+      "name": "PREPARAR CONTEUDO WP",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2176,
+        -656
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mineralstradingdaily.com.br/wp-json/wp/v2/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{ $json.wp_title }}"
+            },
+            {
+              "name": "content",
+              "value": "={{ $json.wp_content }}"
+            },
+            {
+              "name": "slug",
+              "value": "={{ $json.wp_slug }}"
+            },
+            {
+              "name": "status",
+              "value": "publish"
+            },
+            {
+              "name": "categories",
+              "value": "={{ $json.wp_categories }}"
+            },
+            {
+              "name": "tags",
+              "value": "={{ $json.wp_tags }}"
+            },
+            {
+              "name": "featured_media",
+              "value": "={{ $json.featured_media_id }}"
+            },
+            {
+              "name": "comment_status",
+              "value": "open"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "publicar-wordpress",
+      "name": "PUBLICAR NO WORDPRESS",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2400,
+        -656
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "RDQ4iINKuueb9XxF",
+          "name": "WP Upload"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "post_images",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('PREPARAR CONTEUDO WP').item.json.image_record_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "published"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-imagem-published",
+      "name": "ATUALIZAR IMAGEM PUBLISHED",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        2624,
+        -656
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "published_content",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "post_id",
+              "fieldValue": "={{ $('PREPARAR CONTEUDO WP').item.json.post_id }}"
+            },
+            {
+              "fieldId": "platform",
+              "fieldValue": "wordpress"
+            },
+            {
+              "fieldId": "platform_content",
+              "fieldValue": "={{ $('PREPARAR CONTEUDO WP').item.json.wp_content }}"
+            },
+            {
+              "fieldId": "platform_post_id",
+              "fieldValue": "={{ $('PUBLICAR NO WORDPRESS').item.json.id }}"
+            },
+            {
+              "fieldId": "published_url",
+              "fieldValue": "={{ $('PUBLICAR NO WORDPRESS').item.json.link }}"
+            }
+          ]
+        }
+      },
+      "id": "salvar-published-content",
+      "name": "SALVAR PUBLISHED CONTENT",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        2848,
+        -656
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PREPARAR CONTEUDO WP').item.json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "published"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-status-published",
+      "name": "ATUALIZAR STATUS PUBLISHED",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        3072,
+        -656
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8375309778",
+        "text": "=🎉 *POST PUBLICADO!*\n━━━━━━━━━━━━━━━━━━━━━\n\n📝 *{{ $('PREPARAR CONTEUDO WP').item.json.wp_title }}*\n\n🔗 {{ $('PUBLICAR NO WORDPRESS').item.json.link }}\n\n🖼 Imagem: ✅ Featured Image configurada\n📁 Categorias: {{ $('PREPARAR CONTEUDO WP').item.json.wp_category_names.join(', ') }}\n🏷 Tags: {{ $('PREPARAR CONTEUDO WP').item.json.wp_tag_slugs.join(', ') }}\n\n━━━━━━━━━━━━━━━━━━━━━\n✅ Publicado em: {{ new Date().toLocaleString('pt-BR') }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "notificar-publicado",
+      "name": "NOTIFICAR PUBLICADO",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        3296,
+        -656
+      ],
+      "typeVersion": 1.2,
+      "webhookId": "1107a570-45bb-4e34-b620-2e80af6102c0",
+      "credentials": {
+        "telegramApi": {
+          "id": "m9XVahL3E2MwSiLA",
+          "name": "MT_Publisher"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "KkCUTo9KVfZkfZrE"
+        },
+        "workflowInputs": {
+          "value": {
+            "title": "={{ $('PREPARAR CONTEUDO WP').item.json.wp_title }}",
+            "content": "={{ $('PREPARAR CONTEUDO WP').item.json.wp_content }}",
+            "post_id": "={{ $('PREPARAR CONTEUDO WP').item.json.post_id }}",
+            "image_url": "={{ $('PREPARAR CONTEUDO WP').item.json.supabase_image_url }}",
+            "wordpress_url": "={{ $('PUBLICAR NO WORDPRESS').item.json.link }}"
+          },
+          "schema": [
+            {
+              "id": "post_id",
+              "type": "string",
+              "display": true,
+              "displayName": "post_id"
+            },
+            {
+              "id": "title",
+              "type": "string",
+              "display": true,
+              "displayName": "title"
+            },
+            {
+              "id": "content",
+              "type": "string",
+              "display": true,
+              "displayName": "content"
+            },
+            {
+              "id": "wordpress_url",
+              "type": "string",
+              "display": true,
+              "displayName": "wordpress_url"
+            },
+            {
+              "id": "image_url",
+              "type": "string",
+              "display": true,
+              "displayName": "image_url"
+            }
+          ],
+          "mappingMode": "defineBelow"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "chamar-social-media",
+      "name": "CHAMAR SOCIAL MEDIA",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "position": [
+        3520,
+        -656
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PARSE CALLBACK DATA').item.json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "approved"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-status-regen",
+      "name": "ATUALIZAR STATUS APPROVED",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        832,
+        -400
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "tableId": "post_images",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PARSE CALLBACK DATA').item.json.post_id }}"
+            },
+            {
+              "keyName": "platform",
+              "condition": "eq",
+              "keyValue": "editorial"
+            }
+          ]
+        }
+      },
+      "id": "deletar-imagem-antiga",
+      "name": "DELETAR IMAGEM ANTIGA",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1056,
+        -400
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "yr7VUG1VMi8o8fi9"
+        },
+        "options": {}
+      },
+      "id": "chamar-wf6-regen",
+      "name": "CHAMAR WF6 REGENERAR",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "position": [
+        1280,
+        -400
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "chatId": "8375309778",
+        "text": "🔄 Gerando nova imagem para o post...\n\nAguarde o novo preview!",
+        "additionalFields": {}
+      },
+      "id": "notificar-regenerando",
+      "name": "NOTIFICAR REGENERANDO",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        1504,
+        -400
+      ],
+      "typeVersion": 1.2,
+      "webhookId": "570948b0-035d-416c-b869-6cfd4b577da5",
+      "credentials": {
+        "telegramApi": {
+          "id": "m9XVahL3E2MwSiLA",
+          "name": "MT_Publisher"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PARSE CALLBACK DATA').item.json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "cancelled"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-status-cancel",
+      "name": "ATUALIZAR STATUS CANCELLED",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        832,
+        -160
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "post_images",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PARSE CALLBACK DATA').item.json.post_id }}"
+            },
+            {
+              "keyName": "platform",
+              "condition": "eq",
+              "keyValue": "editorial"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "rejected"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-imagem-rejected",
+      "name": "ATUALIZAR IMAGEM REJECTED",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        1056,
+        -160
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8375309778",
+        "text": "❌ Post cancelado.\n\nO draft permanece no banco para futura revisao.",
+        "additionalFields": {}
+      },
+      "id": "notificar-cancelado",
+      "name": "NOTIFICAR CANCELADO",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        1280,
+        -160
+      ],
+      "typeVersion": 1.2,
+      "webhookId": "e76b8f30-6692-489d-b4cf-bf92fdf4736e",
+      "credentials": {
+        "telegramApi": {
+          "id": "m9XVahL3E2MwSiLA",
+          "name": "MT_Publisher"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger",
+      "name": "TELEGRAM TRIGGER",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -288,
+        -400
+      ],
+      "webhookId": "f83badb2-7382-4f16-abb5-61ca946a28b8",
+      "credentials": {
+        "telegramApi": {
+          "id": "m9XVahL3E2MwSiLA",
+          "name": "MT_Publisher"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "PARSE CALLBACK DATA": {
+      "main": [
+        [
+          {
+            "node": "ANSWER CALLBACK QUERY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANSWER CALLBACK QUERY": {
+      "main": [
+        [
+          {
+            "node": "QUAL ACAO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUAL ACAO?": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR DADOS PUBLISH",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ATUALIZAR STATUS APPROVED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ATUALIZAR STATUS CANCELLED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR DADOS PUBLISH": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR IMAGEM APROVADA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR IMAGEM APROVADA": {
+      "main": [
+        [
+          {
+            "node": "DOWNLOAD IMAGEM SUPABASE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DOWNLOAD IMAGEM SUPABASE": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR UPLOAD WP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR UPLOAD WP": {
+      "main": [
+        [
+          {
+            "node": "UPLOAD IMAGEM WP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPLOAD IMAGEM WP": {
+      "main": [
+        [
+          {
+            "node": "DEFINIR ALT IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DEFINIR ALT IMAGEM": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR CONTEUDO WP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR CONTEUDO WP": {
+      "main": [
+        [
+          {
+            "node": "PUBLICAR NO WORDPRESS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PUBLICAR NO WORDPRESS": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR IMAGEM PUBLISHED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR IMAGEM PUBLISHED": {
+      "main": [
+        [
+          {
+            "node": "SALVAR PUBLISHED CONTENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SALVAR PUBLISHED CONTENT": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR STATUS PUBLISHED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR STATUS PUBLISHED": {
+      "main": [
+        [
+          {
+            "node": "NOTIFICAR PUBLICADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NOTIFICAR PUBLICADO": {
+      "main": [
+        [
+          {
+            "node": "CHAMAR SOCIAL MEDIA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR STATUS APPROVED": {
+      "main": [
+        [
+          {
+            "node": "DELETAR IMAGEM ANTIGA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DELETAR IMAGEM ANTIGA": {
+      "main": [
+        [
+          {
+            "node": "CHAMAR WF6 REGENERAR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CHAMAR WF6 REGENERAR": {
+      "main": [
+        [
+          {
+            "node": "NOTIFICAR REGENERANDO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR STATUS CANCELLED": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR IMAGEM REJECTED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR IMAGEM REJECTED": {
+      "main": [
+        [
+          {
+            "node": "NOTIFICAR CANCELADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TELEGRAM TRIGGER": {
+      "main": [
+        [
+          {
+            "node": "PARSE CALLBACK DATA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "d9ea77ab-c1b1-4d65-946d-3f881ce76633",
+  "meta": {
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "vqW2Dt3FkbkQPHws",
+  "tags": []
+}

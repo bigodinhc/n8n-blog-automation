@@ -1,0 +1,551 @@
+{
+  "name": "[BLOG] 4.5 FEEDBACK CAPTURE",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Validar Mensagem de Feedback\nconst message = $json.message;\n\n// Verifica se tem mensagem de texto\nif (!message || !message.text) {\n  return { is_feedback: false };\n}\n\nconst chatId = message.chat.id;\nconst userId = message.from.id;\nconst text = message.text;\n\n// Ignora comandos\nif (text.startsWith('/')) {\n  return { is_feedback: false };\n}\n\nreturn {\n  is_feedback: true,\n  chat_id: chatId,\n  user_id: userId,\n  feedback_text: text,\n  received_at: new Date().toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -672
+      ],
+      "id": "708b1889-386e-4c1f-a75f-11c8ccaee6cc",
+      "name": "VALIDAR FEEDBACK"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "1740c4e6-1f1d-4aa4-899d-e2a9c806827d",
+              "leftValue": "={{ $json.is_feedback === true }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        160,
+        -672
+      ],
+      "id": "b98d2f54-b639-4f47-9645-3f3a29d00f87",
+      "name": "E FEEDBACK?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "feedback_sessions",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chat_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.chat_id }}"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "waiting"
+            },
+            {
+              "keyName": "expires_at",
+              "condition": "gt",
+              "keyValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        384,
+        -704
+      ],
+      "id": "4ba4f160-e96a-42ad-a748-c34cfaf241f2",
+      "name": "BUSCAR SESSAO ATIVA",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "3c291116-0a1c-4d1e-93e3-e7ce1515569a",
+              "leftValue": "={{ $json }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        608,
+        -704
+      ],
+      "id": "4041d5e6-91bf-4f7f-954b-fd8a7069a1e8",
+      "name": "ENCONTROU SESSAO?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Estruturar Feedback (MIGRADO PARA NOVAS TABELAS)\nconst feedbackData = $('VALIDAR FEEDBACK').item.json;\nconst supabaseData = $('BUSCAR SESSAO ATIVA').item.json;\n\nconst sessions = Array.isArray(supabaseData) ? supabaseData : [supabaseData];\n\nif (!sessions[0]) {\n  throw new Error(\"Sessao nao encontrada no array\");\n}\n\nconst session = sessions[0];\n\nreturn {\n  post_update: {\n    post_id: session.post_id,\n    review_notes: feedbackData.feedback_text,\n    status: 'needs_revision'\n  },\n  session_update: {\n    session_id: session.session_id,\n    status: 'completed',\n    feedback_text: feedbackData.feedback_text,\n    completed_at: new Date().toISOString()\n  },\n  telegram_confirm: {\n    chat_id: feedbackData.chat_id || session.chat_id,\n    text: `Feedback Recebido! Post sera revisado e reenviado.`,\n    parse_mode: \"Markdown\"\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        -752
+      ],
+      "id": "1c475b67-e030-47a5-862c-1886e5a64b0b",
+      "name": "PROCESSAR FEEDBACK"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.post_update.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.post_update.status }}"
+            },
+            {
+              "fieldId": "review_notes",
+              "fieldValue": "={{ $json.session_update.feedback_text }}"
+            },
+            {
+              "fieldId": "review_started_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        -752
+      ],
+      "id": "bcbeaf43-4e19-40da-9e92-28b3be275ad6",
+      "name": "SALVAR REVIEW NOTES",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "vw_blog_drafts",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('PROCESSAR FEEDBACK').item.json.post_update.post_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        -752
+      ],
+      "id": "e7330e69-9f7d-40de-8072-07ae49a157ef",
+      "name": "BUSCAR POST REVISADO",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendDocument",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json.caption }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "={{ $json.parse_mode }}"
+            },
+            {
+              "name": "reply_markup",
+              "value": "={{ $json.reply_markup }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "document",
+              "inputDataFieldName": "document"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2192,
+        -752
+      ],
+      "id": "5252d92d-1ee8-4b7e-a185-7a0541e4f15e",
+      "name": "ENVIAR TELEGRAM"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Extrair Message ID da Resposta do Telegram\n\nconst telegramResponse = $json;\n\nif (!telegramResponse.ok || !telegramResponse.result) {\n  throw new Error('Resposta do Telegram invalida: ' + JSON.stringify(telegramResponse));\n}\n\nconst messageId = telegramResponse.result.message_id;\nconst draftId = $('PREPARAR TELEGRAM REVISADO').item.json.draft_id;\n\nif (!draftId) {\n  throw new Error('draft_id nao encontrado no node anterior');\n}\n\nconst sentAt = new Date().toISOString();\n\nreturn {\n  post_id: draftId,\n  telegram_message_id: messageId,\n  review_started_at: sentAt\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        -752
+      ],
+      "id": "7c5a0cf6-7780-4c64-9b69-7eeb493ab260",
+      "name": "EXTRAIR MSG ID"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Preparar Post HTML REVISADO + Payload Telegram\nconst draft = $json;\n\nif (!draft || !draft.id) {\n  throw new Error('Post revisado nao possui dados validos');\n}\n\nconst currentNumber = draft.review_order || 1;\nconst totalPosts = draft.total_in_session || 1;\nconst chatId = \"8375309778\";\n\nlet tierEmoji, tierLabel, tierColor;\nswitch(draft.tier) {\n  case 'TIER_1':\n    tierEmoji = '🔴';\n    tierLabel = 'CRITICO - Revisao Urgente';\n    tierColor = '#dc3545';\n    break;\n  case 'TIER_2':\n    tierEmoji = '🟡';\n    tierLabel = 'Normal - Revisao Regular';\n    tierColor = '#ffc107';\n    break;\n  case 'TIER_3':\n    tierEmoji = '🟢';\n    tierLabel = 'Baixa Prioridade';\n    tierColor = '#28a745';\n    break;\n  default:\n    tierEmoji = '⚪';\n    tierLabel = 'Sem Classificacao';\n    tierColor = '#6c757d';\n}\n\nconst createdDate = draft.created_at \n  ? new Date(draft.created_at).toLocaleDateString('pt-BR', {\n      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'\n    })\n  : 'Data nao disponivel';\n\nconst originalDate = draft.original_date\n  ? new Date(draft.original_date).toLocaleDateString('pt-BR')\n  : null;\n\nconst categories = Array.isArray(draft.categories) \n  ? draft.categories.join(', ') \n  : (draft.categories || 'Sem categorias');\n\nconst postContent = draft.content_html || draft.content_markdown || 'Conteudo nao disponivel';\n\nconst htmlContent = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${draft.title || 'Post para Revisao'}</title>\n  <style>\n    * { box-sizing: border-box; margin: 0; padding: 0; }\n    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 16px; }\n    .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }\n    .revision-banner { background: #7c3aed; color: white; padding: 12px 20px; text-align: center; font-weight: 600; }\n    .header { background: ${tierColor}; color: white; padding: 20px; }\n    .header-badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 14px; margin-bottom: 12px; }\n    .header h1 { font-size: 22px; font-weight: 600; line-height: 1.3; }\n    .meta-section { background: #f8f9fa; padding: 16px 20px; border-bottom: 1px solid #e9ecef; }\n    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }\n    .meta-item { font-size: 14px; }\n    .meta-label { color: #666; font-size: 12px; text-transform: uppercase; }\n    .meta-value { font-weight: 500; color: #333; }\n    .categories { padding: 12px 20px; background: #fff; border-bottom: 1px solid #e9ecef; }\n    .category-tag { display: inline-block; background: #e9ecef; color: #495057; padding: 4px 10px; border-radius: 4px; font-size: 13px; margin: 2px 4px 2px 0; }\n    .content { padding: 24px 20px; }\n    .content-label { font-size: 12px; text-transform: uppercase; color: #666; margin-bottom: 16px; font-weight: 600; }\n    .content-body { font-size: 16px; line-height: 1.8; }\n    .footer { background: #f8f9fa; padding: 16px 20px; font-size: 12px; color: #666; text-align: center; border-top: 1px solid #e9ecef; }\n    .footer-id { font-family: monospace; background: #e9ecef; padding: 2px 8px; border-radius: 4px; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"revision-banner\">🔄 VERSAO REVISADA - Confira as alteracoes</div>\n    <div class=\"header\">\n      <div class=\"header-badge\">${tierEmoji} ${tierLabel}</div>\n      <h1>${draft.title || 'Titulo nao disponivel'}</h1>\n    </div>\n    <div class=\"meta-section\">\n      <div class=\"meta-grid\">\n        <div class=\"meta-item\"><div class=\"meta-label\">Palavras</div><div class=\"meta-value\">${draft.word_count || 0}</div></div>\n        <div class=\"meta-item\"><div class=\"meta-label\">Tempo de Leitura</div><div class=\"meta-value\">${draft.reading_time_minutes || 1} min</div></div>\n        <div class=\"meta-item\"><div class=\"meta-label\">Data Original</div><div class=\"meta-value\">${originalDate || createdDate}</div></div>\n      </div>\n    </div>\n    <div class=\"categories\">\n      <span class=\"meta-label\">Categorias: </span>\n      ${(Array.isArray(draft.categories) ? draft.categories : [categories]).map(cat => `<span class=\"category-tag\">${cat}</span>`).join('')}\n    </div>\n    <div class=\"content\">\n      <div class=\"content-label\">📄 Conteudo Completo</div>\n      <div class=\"content-body\">${postContent}</div>\n    </div>\n    <div class=\"footer\">\n      Post ID: <span class=\"footer-id\">${draft.id || 'N/A'}</span>\n    </div>\n  </div>\n</body>\n</html>`;\n\nconst caption = `🔄 *REVISADO - POST ${currentNumber}/${totalPosts}*  |  ${tierEmoji} *${draft.tier || 'N/A'}*\\n\\n*${draft.title || 'Sem titulo'}*\\n\\n📊 ${draft.word_count || 0} palavras  •  ⏱ ${draft.reading_time_minutes || 1} min\\n📁 ${categories}\\n\\n💡 _Confira as alteracoes no arquivo HTML_`;\n\nconst inlineKeyboard = [\n  [\n    { text: '✅ Aprovar Revisao', callback_data: `approve_${draft.id}` },\n    { text: '📅 Agendar', callback_data: `schedule_${draft.id}` }\n  ],\n  [\n    { text: '✏️ Editar Novamente', callback_data: `edit_${draft.id}` },\n    { text: '❌ Rejeitar', callback_data: `reject_${draft.id}` }\n  ],\n  [\n    { text: '⏭️ Pular', callback_data: `skip_${draft.id}` }\n  ]\n];\n\nconst fileName = `post_REVISADO_${draft.tier || 'draft'}_${(draft.id || 'unknown').substring(0, 8)}.html`;\nconst binaryData = Buffer.from(htmlContent, 'utf-8');\n\nreturn {\n  json: {\n    chat_id: chatId,\n    caption: caption,\n    parse_mode: \"Markdown\",\n    reply_markup: JSON.stringify({ inline_keyboard: inlineKeyboard }),\n    draft_id: draft.id,\n    draft_title: draft.title,\n    file_name: fileName\n  },\n  binary: {\n    document: {\n      data: binaryData.toString('base64'),\n      mimeType: 'text/html',\n      fileName: fileName\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1968,
+        -752
+      ],
+      "id": "1be0949e-5530-4135-8559-d60735514716",
+      "name": "PREPARAR TELEGRAM REVISADO"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "telegram_message_id",
+              "fieldValue": "={{ $json.telegram_message_id }}"
+            },
+            {
+              "fieldId": "review_started_at",
+              "fieldValue": "={{ $json.review_started_at }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "draft"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        -736
+      ],
+      "id": "99ff713a-4894-481c-901a-94921e68e7e8",
+      "name": "SALVAR MSG ID",
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "5TuCwLZLlGdczwhU"
+        },
+        "workflowInputs": {
+          "value": {},
+          "schema": [],
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "attemptToConvertTypes": true,
+          "ignoreTypeMismatchErrors": true,
+          "attemptToAutoMapInputData": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "exec-wf5",
+      "name": "EXECUTAR REVISION PROCESSOR",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1520,
+        -752
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar dados para o WF5 REVISION PROCESSOR\nconst processedData = $('PROCESSAR FEEDBACK').item.json;\n\nreturn {\n  post_id: processedData.post_update.post_id\n};"
+      },
+      "id": "code-prep-wf5",
+      "name": "PREPARAR DADOS WF5",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        -752
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trigger-exec-wf",
+      "name": "TRIGGER DO WF4",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -288,
+        -672
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "VALIDAR FEEDBACK": {
+      "main": [
+        [
+          {
+            "node": "E FEEDBACK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E FEEDBACK?": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR SESSAO ATIVA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR SESSAO ATIVA": {
+      "main": [
+        [
+          {
+            "node": "ENCONTROU SESSAO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENCONTROU SESSAO?": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR FEEDBACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR FEEDBACK": {
+      "main": [
+        [
+          {
+            "node": "SALVAR REVIEW NOTES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SALVAR REVIEW NOTES": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR DADOS WF5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR DADOS WF5": {
+      "main": [
+        [
+          {
+            "node": "EXECUTAR REVISION PROCESSOR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXECUTAR REVISION PROCESSOR": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR POST REVISADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR POST REVISADO": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR TELEGRAM REVISADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR TELEGRAM REVISADO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "EXTRAIR MSG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXTRAIR MSG ID": {
+      "main": [
+        [
+          {
+            "node": "SALVAR MSG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TRIGGER DO WF4": {
+      "main": [
+        [
+          {
+            "node": "VALIDAR FEEDBACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "0602613a-4f73-493d-a410-3c0f5c3c3e29",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "QElqWkwrvoxGKDN4",
+  "tags": []
+}

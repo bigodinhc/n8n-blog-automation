@@ -1,0 +1,309 @@
+{
+  "name": "[BLOG] 0 ERROR HANDLER",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-error",
+      "name": "TRIGGER ERROR",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados de erro do Error Trigger\nconst input = $input.first().json;\n\n// Extrair dados do contexto de erro do n8n\nconst execution = input.execution || {};\nconst workflow = input.workflow || execution.workflowData || {};\nconst errorData = execution.error || input.error || {};\n\n// Extrair informacoes\nconst executionId = execution.id || input.executionId || 'unknown';\nconst workflowId = workflow.id || input.workflowId || 'unknown';\nconst workflowName = workflow.name || input.workflowName || 'Unknown Workflow';\n\n// Tentar extrair o node que falhou\nlet nodeName = 'Unknown Node';\nif (errorData.node) {\n  nodeName = errorData.node.name || errorData.node;\n} else if (input.node) {\n  nodeName = input.node.name || input.node;\n}\n\n// Extrair mensagem de erro\nlet errorMessage = 'Unknown error';\nif (errorData.message) {\n  errorMessage = errorData.message;\n} else if (typeof errorData === 'string') {\n  errorMessage = errorData;\n} else if (input.message) {\n  errorMessage = input.message;\n}\n\n// Classificar tipo de erro baseado na mensagem\nlet errorType = 'UNKNOWN';\nconst msgLower = errorMessage.toLowerCase();\nif (msgLower.includes('timeout') || msgLower.includes('rate limit') || msgLower.includes('token')) {\n  errorType = 'AI';\n} else if (msgLower.includes('duplicate') || msgLower.includes('constraint') || msgLower.includes('foreign key') || msgLower.includes('supabase')) {\n  errorType = 'DATABASE';\n} else if (msgLower.includes('api') || msgLower.includes('401') || msgLower.includes('403') || msgLower.includes('telegram')) {\n  errorType = 'API';\n} else if (msgLower.includes('parse') || msgLower.includes('json') || msgLower.includes('syntax')) {\n  errorType = 'PARSE';\n} else if (msgLower.includes('network') || msgLower.includes('econnrefused') || msgLower.includes('timeout')) {\n  errorType = 'NETWORK';\n}\n\n// Severidade baseada no workflow\nconst severity = 'CRITICAL';\n\nconst now = new Date().toISOString();\nconst displayDate = new Date().toLocaleString('pt-BR', {\n  timeZone: 'America/Sao_Paulo',\n  day: '2-digit',\n  month: '2-digit',\n  year: 'numeric',\n  hour: '2-digit',\n  minute: '2-digit',\n  second: '2-digit'\n});\n\nconst typeEmojis = {\n  'AI': '🤖',\n  'DATABASE': '🗄️',\n  'API': '📡',\n  'PARSE': '📝',\n  'NETWORK': '🌐',\n  'VALIDATION': '⚠️',\n  'UNKNOWN': '❓'\n};\n\nconst severityEmojis = {\n  'CRITICAL': '🚨',\n  'WARNING': '⚠️',\n  'INFO': 'ℹ️'\n};\n\n// Gerar hash para deduplicacao\nconst hashSource = `${workflowId}:${nodeName}:${errorType}:${errorMessage.substring(0, 100)}`;\nfunction simpleHash(str) {\n  let hash = 0;\n  for (let i = 0; i < str.length; i++) {\n    const char = str.charCodeAt(i);\n    hash = ((hash << 5) - hash) + char;\n    hash = hash & hash;\n  }\n  return Math.abs(hash).toString(16).padStart(16, '0');\n}\nconst errorHash = simpleHash(hashSource);\n\nreturn [{\n  json: {\n    execution_id: executionId,\n    workflow_id: workflowId,\n    workflow_name: workflowName,\n    node_name: nodeName,\n    error_type: errorType,\n    severity: severity,\n    error_message: errorMessage,\n    error_code: errorData.code || null,\n    error_stack: errorData.stack || null,\n    input_data: null,\n    context: {\n      mode: execution.mode || 'unknown',\n      retryOf: execution.retryOf || null\n    },\n    error_hash: errorHash,\n    timestamp: now,\n    display_date: displayDate,\n    type_emoji: typeEmojis[errorType] || '❓',\n    severity_emoji: severityEmojis[severity] || '🚨',\n    dedup_threshold: new Date(Date.now() - 30 * 60 * 1000).toISOString()\n  }\n}];"
+      },
+      "id": "processar-erro",
+      "name": "PROCESSAR ERRO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "system_errors",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "error_hash",
+              "keyValue": "={{ $json.error_hash }}"
+            },
+            {
+              "keyName": "resolved",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "id": "verificar-duplicado",
+      "name": "VERIFICAR DUPLICADO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "check-exists",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eh-duplicado",
+      "name": "EH DUPLICADO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "system_errors",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "id": "incrementar-contador",
+      "name": "INCREMENTAR CONTADOR",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        960,
+        -96
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "log-duplicado",
+      "name": "LOG DUPLICADO",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "system_errors"
+      },
+      "id": "inserir-erro",
+      "name": "INSERIR ERRO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        960,
+        112
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar mensagem formatada para Telegram\nconst erro = $('PROCESSAR ERRO').first().json;\n\nlet message = `${erro.severity_emoji} *ERRO ${erro.severity} - BLOG SYSTEM*\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\n\nmessage += `📋 *Workflow:* ${erro.workflow_name}\\n`;\nmessage += `🔧 *Node:* ${erro.node_name}\\n`;\nmessage += `${erro.type_emoji} *Tipo:* ${erro.error_type}\\n`;\nmessage += `⏰ *Horario:* ${erro.display_date}\\n\\n`;\n\nmessage += `❌ *Erro:*\\n`;\nconst errorText = erro.error_message.substring(0, 400);\nmessage += `${errorText}${erro.error_message.length > 400 ? '...' : ''}\\n\\n`;\n\nif (erro.context && Object.keys(erro.context).length > 0) {\n  message += `📝 *Contexto:*\\n`;\n  for (const [key, value] of Object.entries(erro.context)) {\n    const displayValue = typeof value === 'object' ? JSON.stringify(value).substring(0, 80) : String(value).substring(0, 80);\n    message += `├─ ${key}: ${displayValue}\\n`;\n  }\n  message += `\\n`;\n}\n\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n`;\nmessage += `🆔 Execution: ${erro.execution_id}`;\n\nreturn [{\n  json: {\n    chat_id: '8375309778',\n    text: message,\n    parse_mode: 'Markdown'\n  }\n}];"
+      },
+      "id": "preparar-telegram",
+      "name": "PREPARAR TELEGRAM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8566018567:AAHiLiFUO0tsiE-3GZpFii3JRluPNEy_4F8/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $json.chat_id, text: $json.text, parse_mode: $json.parse_mode }) }}",
+        "options": {}
+      },
+      "id": "enviar-telegram",
+      "name": "ENVIAR TELEGRAM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "confirmar-envio",
+      "name": "CONFIRMAR ENVIO",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        112
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "TRIGGER ERROR": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR ERRO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR ERRO": {
+      "main": [
+        [
+          {
+            "node": "VERIFICAR DUPLICADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VERIFICAR DUPLICADO": {
+      "main": [
+        [
+          {
+            "node": "EH DUPLICADO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EH DUPLICADO?": {
+      "main": [
+        [
+          {
+            "node": "INCREMENTAR CONTADOR",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "INSERIR ERRO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INCREMENTAR CONTADOR": {
+      "main": [
+        [
+          {
+            "node": "LOG DUPLICADO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INSERIR ERRO": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR TELEGRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR TELEGRAM": {
+      "main": [
+        [
+          {
+            "node": "CONFIRMAR ENVIO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "73915551-ee65-4ad4-83bf-52c3e206ddcf",
+  "meta": {
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "dxVlQYOyMQ4xxaHt",
+  "tags": []
+}

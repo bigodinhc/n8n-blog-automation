@@ -1,0 +1,466 @@
+{
+  "name": "[BLOG] 5 REVISION PROCESSOR",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Preparar Dados para o AI Agent Editor\n// Extrai o post atual e prepara o contexto para revisao\n\nconst post = $json;\n\n// Validacao\nif (!post || !post.id) {\n  throw new Error('Post nao encontrado ou invalido');\n}\n\n// Monta o contexto para o Editor\nconst editorContext = {\n  // Identificacao\n  post_id: post.id,\n  tier: post.tier || 'TIER_2',\n  category: post.category || 'general',\n  \n  // Conteudo original\n  original: {\n    title: post.title || '',\n    slug: post.slug || '',\n    excerpt: post.excerpt || '',\n    meta_title: post.meta_title || '',\n    meta_description: post.meta_description || '',\n    content_html: post.content_html || '',\n    content_markdown: post.content_markdown || '',\n    categories: post.categories || [],\n    tags: post.tags || [],\n    word_count: post.word_count || 0,\n    reading_time_minutes: post.reading_time_minutes || 0\n  },\n  \n  // Feedback do revisor (o mais importante!)\n  review_notes: post.review_notes || 'Sem instrucoes especificas',\n  \n  // Metadados\n  review_session_id: post.review_session_id,\n  review_order: post.review_order,\n  created_at: post.created_at\n};\n\n// Monta o prompt do usuario para o AI Agent\nconst userPrompt = `## POST PARA REVISAO\n\n### FEEDBACK DO REVISOR (PRIORIDADE MAXIMA)\n${editorContext.review_notes}\n\n### CONTEUDO ATUAL\n**Titulo:** ${editorContext.original.title}\n**Slug:** ${editorContext.original.slug}\n**Excerpt:** ${editorContext.original.excerpt}\n**Meta Title:** ${editorContext.original.meta_title}\n**Meta Description:** ${editorContext.original.meta_description}\n\n**Categorias:** ${JSON.stringify(editorContext.original.categories)}\n**Tags:** ${JSON.stringify(editorContext.original.tags)}\n\n**Conteudo HTML:**\n${editorContext.original.content_html}\n\n### INSTRUCOES\n1. Leia atentamente o FEEDBACK DO REVISOR\n2. Aplique TODAS as correcoes solicitadas\n3. Mantenha o que NAO foi criticado\n4. Preserve 100% dos dados numericos originais\n5. Retorne o JSON completo com a versao corrigida`;\n\nreturn {\n  context: editorContext,\n  user_prompt: userPrompt,\n  post_id: post.id\n};"
+      },
+      "id": "code-1",
+      "name": "PREPARAR PROMPT EDITOR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.user_prompt }}",
+        "options": {
+          "systemMessage": "=Voce e um EDITOR especializado em revisao de conteudo sobre mercado de minerio de ferro. Sua funcao e aplicar correcoes solicitadas pelo revisor humano, mantendo a precisao jornalistica.\n\n## SUA MISSAO\nReceber um post existente + feedback do revisor e produzir uma versao CORRIGIDA.\n\n## REGRAS ABSOLUTAS\n\n### O que voce DEVE fazer:\n- Atender TODAS as solicitacoes do feedback do revisor\n- Manter 100% de precisao em numeros, datas e valores\n- Preservar secoes que NAO foram criticadas\n- Manter o mesmo formato e estrutura HTML\n- Corrigir erros de gramatica se encontrar\n\n### O que voce NAO PODE fazer:\n- Inventar dados, numeros ou informacoes novas\n- Ignorar qualquer parte do feedback\n- Alterar dados numericos sem instrucao explicita\n- Remover secoes sem que o revisor peca\n- Adicionar especulacoes ou previsoes\n\n## INTERPRETACAO DO FEEDBACK\n\nExemplos de como interpretar feedbacks comuns:\n\n- \"Titulo muito longo\" -> Reduza para ~60 caracteres mantendo a informacao principal\n- \"Adicionar dados sobre China\" -> Destaque informacoes sobre China que JA existem no texto\n- \"Tom muito informal\" -> Ajuste para linguagem mais tecnica/profissional\n- \"Resumo confuso\" -> Reescreva o excerpt de forma mais clara e direta\n- \"Falta contexto\" -> Reorganize para dar mais destaque ao contexto existente\n\n## OUTPUT OBRIGATORIO\n\nRetorne APENAS um JSON valido com esta estrutura:\n\n```json\n{\n  \"title\": \"Titulo corrigido (max 70 chars)\",\n  \"slug\": \"slug-url-amigavel\",\n  \"excerpt\": \"Resumo corrigido (150-160 chars)\",\n  \"meta_title\": \"Meta title SEO (max 60 chars)\",\n  \"meta_description\": \"Meta description SEO (150-160 chars)\",\n  \"categories\": [\"categoria1\", \"categoria2\"],\n  \"tags\": [\"tag1\", \"tag2\"],\n  \"content_html\": \"<div>Conteudo HTML corrigido</div>\",\n  \"content_markdown\": \"Conteudo Markdown corrigido\",\n  \"word_count\": 0,\n  \"reading_time_minutes\": 0,\n  \"changes_made\": [\n    \"Descricao da mudanca 1\",\n    \"Descricao da mudanca 2\"\n  ]\n}\n```\n\n## IMPORTANTE\n- Retorne APENAS o JSON, sem texto antes ou depois\n- O campo \"changes_made\" deve listar todas as alteracoes feitas\n- Se o feedback pedir algo impossivel (ex: dados que nao existem), mencione em changes_made"
+        }
+      },
+      "id": "agent-1",
+      "name": "AI AGENT EDITOR",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        464,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Processar Resposta do AI Agent Editor\n// Extrai o JSON da resposta e prepara para update no banco\n\nconst aiResponse = $json.output || $json.text || $json;\nconst context = $('PREPARAR PROMPT EDITOR').item.json.context;\n\n// Tenta parsear a resposta do AI\nlet revisedContent;\ntry {\n  // Se a resposta for string, faz parse\n  if (typeof aiResponse === 'string') {\n    // Remove possiveis markdown code blocks\n    let cleanResponse = aiResponse\n      .replace(/```json\\n?/g, '')\n      .replace(/```\\n?/g, '')\n      .trim();\n    \n    revisedContent = JSON.parse(cleanResponse);\n  } else if (aiResponse.output) {\n    // Se vier como objeto com output\n    let cleanOutput = aiResponse.output\n      .replace(/```json\\n?/g, '')\n      .replace(/```\\n?/g, '')\n      .trim();\n    revisedContent = JSON.parse(cleanOutput);\n  } else {\n    revisedContent = aiResponse;\n  }\n} catch (e) {\n  throw new Error('Erro ao parsear resposta do AI: ' + e.message + '. Resposta: ' + JSON.stringify(aiResponse).substring(0, 500));\n}\n\n// Valida campos obrigatorios\nif (!revisedContent.title || !revisedContent.content_html) {\n  throw new Error('Resposta do AI nao contem campos obrigatorios (title, content_html)');\n}\n\n// Calcula word_count e reading_time se nao vieram\nconst textContent = (revisedContent.content_html || '').replace(/<[^>]*>/g, ' ').trim();\nconst wordCount = revisedContent.word_count || textContent.split(/\\s+/).filter(w => w.length > 0).length;\nconst readingTime = revisedContent.reading_time_minutes || Math.ceil(wordCount / 200);\n\n// Prepara dados para update em content_posts\nconst contentPostsUpdate = {\n  post_id: context.post_id,\n  title: revisedContent.title,\n  slug: revisedContent.slug || context.original.slug,\n  excerpt: revisedContent.excerpt || context.original.excerpt,\n  content_html: revisedContent.content_html,\n  content_markdown: revisedContent.content_markdown || context.original.content_markdown,\n  word_count: wordCount,\n  reading_time_minutes: readingTime,\n  updated_at: new Date().toISOString()\n};\n\n// Prepara dados para update em content_metadata\nconst contentMetadataUpdate = {\n  post_id: context.post_id,\n  meta_title: revisedContent.meta_title || revisedContent.title,\n  meta_description: revisedContent.meta_description || revisedContent.excerpt,\n  categories: revisedContent.categories || context.original.categories,\n  tags: revisedContent.tags || context.original.tags,\n  updated_at: new Date().toISOString()\n};\n\n// Prepara dados para update em content_workflow\nconst contentWorkflowUpdate = {\n  post_id: context.post_id,\n  status: 'draft', // Volta para draft para nova revisao\n  review_notes: null, // Limpa as notas apos aplicar\n  revision_count: 1, // Incrementar se existir campo\n  updated_at: new Date().toISOString()\n};\n\nreturn {\n  content_posts: contentPostsUpdate,\n  content_metadata: contentMetadataUpdate,\n  content_workflow: contentWorkflowUpdate,\n  changes_made: revisedContent.changes_made || ['Revisao aplicada'],\n  review_session_id: context.review_session_id,\n  review_order: context.review_order\n};"
+      },
+      "id": "code-2",
+      "name": "PROCESSAR RESPOSTA AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_posts",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.content_posts.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.content_posts.title }}"
+            },
+            {
+              "fieldId": "slug",
+              "fieldValue": "={{ $json.content_posts.slug }}"
+            },
+            {
+              "fieldId": "excerpt",
+              "fieldValue": "={{ $json.content_posts.excerpt }}"
+            },
+            {
+              "fieldId": "content_html",
+              "fieldValue": "={{ $json.content_posts.content_html }}"
+            },
+            {
+              "fieldId": "content_markdown",
+              "fieldValue": "={{ $json.content_posts.content_markdown }}"
+            },
+            {
+              "fieldId": "word_count",
+              "fieldValue": "={{ $json.content_posts.word_count }}"
+            },
+            {
+              "fieldId": "reading_time_minutes",
+              "fieldValue": "={{ $json.content_posts.reading_time_minutes }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json.content_posts.updated_at }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-2",
+      "name": "ATUALIZAR CONTENT POSTS",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        -160
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_metadata",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PROCESSAR RESPOSTA AI').item.json.content_metadata.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "meta_title",
+              "fieldValue": "={{ $('PROCESSAR RESPOSTA AI').item.json.content_metadata.meta_title }}"
+            },
+            {
+              "fieldId": "meta_description",
+              "fieldValue": "={{ $('PROCESSAR RESPOSTA AI').item.json.content_metadata.meta_description }}"
+            },
+            {
+              "fieldId": "categories",
+              "fieldValue": "={{ $('PROCESSAR RESPOSTA AI').item.json.content_metadata.categories }}"
+            },
+            {
+              "fieldId": "tags",
+              "fieldValue": "={{ $('PROCESSAR RESPOSTA AI').item.json.content_metadata.tags }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $('PROCESSAR RESPOSTA AI').item.json.content_metadata.updated_at }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-3",
+      "name": "ATUALIZAR CONTENT METADATA",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        -160
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "content_workflow",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "condition": "eq",
+              "keyValue": "={{ $('PROCESSAR RESPOSTA AI').item.json.content_workflow.post_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "draft"
+            },
+            {
+              "fieldId": "review_notes"
+            }
+          ]
+        }
+      },
+      "id": "supabase-4",
+      "name": "ATUALIZAR WORKFLOW STATUS",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        -160
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node - Preparar Notificacao de Revisao Concluida\n\nconst processedData = $('PROCESSAR RESPOSTA AI').item.json;\nconst contentPosts = processedData.content_posts;\nconst changesMade = processedData.changes_made || [];\n\nconst chatId = \"8375309778\";\n\nconst messageText = `*REVISAO APLICADA*\\n\\n*Post:* ${contentPosts.title.substring(0, 50)}...\\n\\n*Alteracoes feitas:*\\n${changesMade.map(c => '- ' + c).join('\\n')}\\n\\nPost retornou para fila de revisao.\\n_Voce recebera a nova versao em breve._\\n\\n_ID: ${contentPosts.post_id.substring(0, 8)}_`;\n\nreturn {\n  telegram_payload: {\n    chat_id: chatId,\n    text: messageText,\n    parse_mode: \"Markdown\"\n  },\n  post_id: contentPosts.post_id,\n  title: contentPosts.title,\n  changes_count: changesMade.length\n};"
+      },
+      "id": "code-3",
+      "name": "PREPARAR NOTIFICACAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.telegram_payload }}",
+        "options": {}
+      },
+      "id": "http-1",
+      "name": "ENVIAR NOTIFICACAO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1936,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-3-7-sonnet-20250219",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 3.7"
+        },
+        "options": {
+          "maxTokensToSample": 6000,
+          "thinking": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        64
+      ],
+      "id": "dd231ea8-c277-4805-80f0-40c104f11e86",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "fjN5QtG5xAcoiOWE",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        608,
+        64
+      ],
+      "id": "91f2463c-cc44-4d13-9742-27980ef07ee3",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trigger-single",
+      "name": "TRIGGER SINGLE POST",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -208,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "vw_blog_drafts",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.post_id }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-single",
+      "name": "BUSCAR POST ESPECIFICO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -160
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "PREPARAR PROMPT EDITOR": {
+      "main": [
+        [
+          {
+            "node": "AI AGENT EDITOR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI AGENT EDITOR": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR RESPOSTA AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR RESPOSTA AI": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR CONTENT POSTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR CONTENT POSTS": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR CONTENT METADATA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR CONTENT METADATA": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR WORKFLOW STATUS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR WORKFLOW STATUS": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR NOTIFICACAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR NOTIFICACAO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR NOTIFICACAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI AGENT EDITOR",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI AGENT EDITOR",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TRIGGER SINGLE POST": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR POST ESPECIFICO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR POST ESPECIFICO": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR PROMPT EDITOR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "fbef7853-4d4d-481b-a74a-014910b3c732",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "5TuCwLZLlGdczwhU",
+  "tags": []
+}

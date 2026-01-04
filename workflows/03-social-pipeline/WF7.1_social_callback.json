@@ -1,0 +1,1096 @@
+{
+  "name": "[BLOG] 7.1 SOCIAL CALLBACK",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "trigger-callback",
+      "name": "TRIGGER SOCIAL CALLBACK",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        -112
+      ],
+      "webhookId": "social-callback-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "kiPLWLjR5rez4GQZ",
+          "name": "SocialMediaBot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "social-route",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "social_"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "SOCIAL"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "img-route",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "img_"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "IMAGE"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "filter-social",
+      "name": "TIPO DE CALLBACK?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        224,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "t4M4Qav7y3860Bje"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "exec-wf72",
+      "name": "EXECUTAR WF7.2 IMAGE",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        512,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const callbackData = $json.callback_query.data;\nconst messageId = $json.callback_query.message.message_id;\nconst chatId = $json.callback_query.message.chat.id;\n\nconst parts = callbackData.split('_');\nconst decision = parts[1];\nconst sessionId = parts.slice(2).join('_');\n\nconst publish_twitter = decision === 'all' || decision === 'twitter';\nconst publish_linkedin = decision === 'all' || decision === 'linkedin';\nconst publish_instagram = decision === 'all' || decision === 'instagram';\n\nlet platforms = [];\nif (publish_twitter) platforms.push('Twitter');\nif (publish_linkedin) platforms.push('LinkedIn');\nif (publish_instagram) platforms.push('Instagram');\nconst platforms_text = platforms.length > 0 ? platforms.join('\\n') : 'Nenhuma plataforma';\n\nreturn {\n  json: {\n    callback_data: callbackData,\n    decision: decision,\n    session_id: sessionId,\n    message_id: messageId,\n    chat_id: chatId,\n    publish_twitter: publish_twitter,\n    publish_linkedin: publish_linkedin,\n    publish_instagram: publish_instagram,\n    is_cancel: decision === 'cancel',\n    platforms_text: platforms_text\n  }\n};"
+      },
+      "id": "extract-callback",
+      "name": "EXTRAIR DADOS CALLBACK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $('TRIGGER SOCIAL CALLBACK').item.json.callback_query.id }}",
+        "additionalFields": {}
+      },
+      "id": "answer-callback",
+      "name": "RESPONDER CALLBACK",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        -112
+      ],
+      "webhookId": "e1ba3dd6-82bc-4d7f-a801-e1a85083423a",
+      "credentials": {
+        "telegramApi": {
+          "id": "kiPLWLjR5rez4GQZ",
+          "name": "SocialMediaBot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "is-cancel",
+              "leftValue": "={{ $('EXTRAIR DADOS CALLBACK').first().json.is_cancel }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-cancel",
+      "name": "CANCELOU?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "social_media_sessions",
+        "filterType": "string",
+        "filterString": "=session_id=eq.{{ $('EXTRAIR DADOS CALLBACK').first().json.session_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "cancelled"
+            },
+            {
+              "fieldId": "decision",
+              "fieldValue": "cancel"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "update-cancelled",
+      "name": "ATUALIZAR CANCELADO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -16
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/editMessageText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: String($('EXTRAIR DADOS CALLBACK').first().json.chat_id), message_id: $('EXTRAIR DADOS CALLBACK').first().json.message_id, text: 'PUBLICACAO CANCELADA - Nenhum conteudo foi publicado nas redes sociais.', parse_mode: 'Markdown', reply_markup: { inline_keyboard: [] } }) }}",
+        "options": {}
+      },
+      "id": "msg-cancelled",
+      "name": "NOTIFICAR CANCELAMENTO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "social_media_sessions",
+        "limit": 1,
+        "filterType": "string",
+        "filterString": "=session_id=eq.{{ $('EXTRAIR DADOS CALLBACK').first().json.session_id }}"
+      },
+      "id": "buscar-sessao",
+      "name": "BUSCAR SESSAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $('BUSCAR SESSAO').first().json;\nconst decision = $('EXTRAIR DADOS CALLBACK').first().json;\n\nconst twitter = typeof session.twitter_content === 'string' ? JSON.parse(session.twitter_content) : session.twitter_content;\nconst linkedin = typeof session.linkedin_content === 'string' ? JSON.parse(session.linkedin_content) : session.linkedin_content;\nconst instagram = typeof session.instagram_content === 'string' ? JSON.parse(session.instagram_content) : session.instagram_content;\nconst twitter_image_url = session.twitter_image_url || null;\n\nreturn {\n  json: {\n    session_id: session.session_id,\n    post_id: session.post_id,\n    wordpress_url: session.wordpress_url,\n    decision: decision.decision,\n    publish_twitter: decision.publish_twitter,\n    publish_linkedin: decision.publish_linkedin,\n    publish_instagram: decision.publish_instagram,\n    twitter: twitter,\n    linkedin: linkedin,\n    instagram: instagram,\n    twitter_image_url: twitter_image_url,\n    message_id: decision.message_id,\n    chat_id: decision.chat_id\n  }\n};"
+      },
+      "id": "preparar-publicacao",
+      "name": "PREPARAR PUBLICACAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "pub-twitter",
+              "leftValue": "={{ $json.publish_twitter }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-twitter",
+      "name": "PUBLICAR TWITTER?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $('PREPARAR PUBLICACAO').first().json.twitter.tweet1_hook }}",
+        "additionalFields": {}
+      },
+      "id": "tweet-1",
+      "name": "TWEET 1 HOOK",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -288
+      ],
+      "credentials": {
+        "twitterOAuth2Api": {
+          "id": "CzoU1m1eqk0uDfMv",
+          "name": "X account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.x.com/2/tweets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('PREPARAR PUBLICACAO').first().json.twitter.tweet2_contexto, reply: { in_reply_to_tweet_id: $json.id } }) }}",
+        "options": {}
+      },
+      "id": "tweet-2",
+      "name": "TWEET 2 CONTEXTO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3856,
+        -304
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "JOtPcRk3KZf7XBAr",
+          "name": "X API Media Upload"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.x.com/2/tweets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('PREPARAR PUBLICACAO').first().json.twitter.tweet3_brasil, reply: { in_reply_to_tweet_id: $json.data.id } }) }}",
+        "options": {}
+      },
+      "id": "tweet-3",
+      "name": "TWEET 3 BRASIL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4064,
+        -304
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "JOtPcRk3KZf7XBAr",
+          "name": "X API Media Upload"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.x.com/2/tweets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('PREPARAR PUBLICACAO').first().json.twitter.tweet4_cta, reply: { in_reply_to_tweet_id: $json.data.id } }) }}",
+        "options": {}
+      },
+      "id": "tweet-4",
+      "name": "TWEET 4 CTA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4240,
+        -304
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "JOtPcRk3KZf7XBAr",
+          "name": "X API Media Upload"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "tableId": "published_content",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "post_id",
+              "fieldValue": "={{ $('PREPARAR PUBLICACAO').first().json.post_id }}"
+            },
+            {
+              "fieldId": "platform",
+              "fieldValue": "twitter"
+            },
+            {
+              "fieldId": "platform_post_id",
+              "fieldValue": "={{ (() => { try { const imgNode = $('EXTRAIR ID TWEET1 IMG').first(); if (imgNode && imgNode.json.id) return imgNode.json.id; } catch(e) {} try { const hookNode = $('TWEET 1 HOOK').first(); if (hookNode && hookNode.json.id) return hookNode.json.id; } catch(e) {} return ''; })() }}"
+            },
+            {
+              "fieldId": "published_url",
+              "fieldValue": "={{ (() => { try { const imgNode = $('EXTRAIR ID TWEET1 IMG').first(); if (imgNode && imgNode.json.id) return 'https://x.com/MineralsTNews/status/' + imgNode.json.id; } catch(e) {} try { const hookNode = $('TWEET 1 HOOK').first(); if (hookNode && hookNode.json.id) return 'https://x.com/MineralsTNews/status/' + hookNode.json.id; } catch(e) {} return ''; })() }}"
+            },
+            {
+              "fieldId": "platform_content",
+              "fieldValue": "={{ JSON.stringify($('PREPARAR PUBLICACAO').first().json.twitter) }}"
+            }
+          ]
+        }
+      },
+      "id": "salvar-twitter",
+      "name": "SALVAR TWITTER",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        4432,
+        -304
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "function getTweetData(nodeName, tweetNumber) {\n  try {\n    const node = $items(nodeName);\n    if (!node || node.length === 0) return { number: tweetNumber, success: false, id: '', error: 'Node sem output' };\n    const item = node[0];\n    if (item.json.error) return { number: tweetNumber, success: false, id: '', error: item.json.error.message || 'Erro' };\n    const tweetId = item.json.data?.id || item.json.id || '';\n    if (tweetId) return { number: tweetNumber, success: true, id: tweetId, error: '' };\n    return { number: tweetNumber, success: false, id: '', error: 'Tweet ID nao encontrado' };\n  } catch (err) {\n    return { number: tweetNumber, success: false, id: '', error: err.message };\n  }\n}\n\nlet tweet1;\ntry {\n  const imgNode = $items('EXTRAIR ID TWEET1 IMG');\n  if (imgNode && imgNode.length > 0 && imgNode[0].json.id) {\n    tweet1 = { number: 1, success: true, id: imgNode[0].json.id, error: '', has_image: true };\n  } else {\n    tweet1 = getTweetData('TWEET 1 HOOK', 1);\n    tweet1.has_image = false;\n  }\n} catch (e) {\n  tweet1 = getTweetData('TWEET 1 HOOK', 1);\n  tweet1.has_image = false;\n}\n\nconst tweet2 = getTweetData('TWEET 2 CONTEXTO', 2);\nconst tweet3 = getTweetData('TWEET 3 BRASIL', 3);\nconst tweet4 = getTweetData('TWEET 4 CTA', 4);\nconst tweets = [tweet1, tweet2, tweet3, tweet4];\nconst totalPublished = tweets.filter(t => t.success).length;\nconst allSuccess = totalPublished === 4;\nconst partialSuccess = totalPublished > 0 && totalPublished < 4;\nconst threadUrl = tweet1.success ? 'https://x.com/MineralsTNews/status/' + tweet1.id : '';\nconst errors = tweets.filter(t => !t.success && t.error).map(t => 'Tweet ' + t.number + ': ' + t.error).join('; ');\n\nreturn { json: { platform: 'twitter', success: allSuccess, partial_success: partialSuccess, all_failed: totalPublished === 0, tweets: tweets, thread_url: threadUrl, total_published: totalPublished, total_failed: 4 - totalPublished, error_summary: errors, tweet1_has_image: tweet1.has_image || false } };"
+      },
+      "id": "resultado-twitter",
+      "name": "RESULTADO TWITTER",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4656,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "platform",
+              "name": "platform",
+              "type": "string",
+              "value": "twitter"
+            },
+            {
+              "id": "success",
+              "name": "success",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "skipped",
+              "name": "skipped",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "skip-twitter",
+      "name": "SKIP TWITTER",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2624,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('PREPARAR PUBLICACAO').first().json;\nconst results = $input.all();\nlet twitterResult = results.find(r => r.json.platform === 'twitter');\nlet hasSuccess = false;\nlet hasError = false;\n\n// Build visual report\nlet report = '';\nlet twitterSection = '';\nlet linkedinSection = '';\nlet instagramSection = '';\n\n// Twitter section\nif (twitterResult) {\n  const tw = twitterResult.json;\n  if (tw.skipped) {\n    twitterSection = '🐦 *Twitter:* Nao selecionado';\n  } else if (tw.success) {\n    twitterSection = '🐦 *Twitter:* ✅ Thread completa (4/4)\\n';\n    twitterSection += '🔗 ' + tw.thread_url;\n    if (tw.tweet1_has_image) twitterSection += '\\n🖼 Imagem anexada ao tweet';\n    hasSuccess = true;\n  } else if (tw.partial_success) {\n    twitterSection = '🐦 *Twitter:* ⚠️ Thread parcial (' + tw.total_published + '/4)\\n';\n    if (tw.thread_url) twitterSection += '🔗 ' + tw.thread_url;\n    hasSuccess = true;\n    hasError = true;\n  } else {\n    twitterSection = '🐦 *Twitter:* ❌ Falhou (0/4)\\n';\n    if (tw.error_summary) twitterSection += '⚠️ ' + tw.error_summary.substring(0, 100);\n    hasError = true;\n  }\n}\n\n// LinkedIn section\nif (prep.publish_linkedin) {\n  linkedinSection = '💼 *LinkedIn:* ⏳ API nao configurada';\n} else {\n  linkedinSection = '💼 *LinkedIn:* Nao selecionado';\n}\n\n// Instagram section\nif (prep.publish_instagram) {\n  instagramSection = '📸 *Instagram:* ⏳ API nao configurada';\n} else {\n  instagramSection = '📸 *Instagram:* Nao selecionado';\n}\n\n// Header based on result\nlet header;\nlet headerEmoji;\nif (hasError && !hasSuccess) {\n  header = '❌ PUBLICACAO FALHOU';\n} else if (hasError && hasSuccess) {\n  header = '⚠️ PUBLICACAO PARCIAL';\n} else if (hasSuccess) {\n  header = '✅ PUBLICACAO CONCLUIDA';\n} else {\n  header = '📊 RESULTADO';\n}\n\n// Assemble final report\nreport = header + '\\n';\nreport += '━━━━━━━━━━━━━━━━━━━━━\\n\\n';\nreport += twitterSection + '\\n\\n';\nreport += linkedinSection + '\\n\\n';\nreport += instagramSection + '\\n\\n';\nreport += '━━━━━━━━━━━━━━━━━━━━━\\n';\nreport += '📰 *Post:* ' + prep.wordpress_url;\n\nreturn { json: { report: report, message_id: prep.message_id, chat_id: prep.chat_id, session_id: prep.session_id, decision: prep.decision, has_success: hasSuccess, has_error: hasError, twitter_image_url: prep.twitter_image_url } };"
+      },
+      "id": "preparar-relatorio",
+      "name": "PREPARAR RELATORIO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4880,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "social_media_sessions",
+        "filterType": "string",
+        "filterString": "=session_id=eq.{{ $json.session_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "published"
+            },
+            {
+              "fieldId": "decision",
+              "fieldValue": "={{ $json.decision }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "atualizar-sessao",
+      "name": "ATUALIZAR SESSAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        5104,
+        -208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8469201230:AAFUsKatR383CVTSpNzLhRtjsR6nQIjpy1E/editMessageText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: String($('PREPARAR RELATORIO').first().json.chat_id), message_id: $('PREPARAR RELATORIO').first().json.message_id, text: $('PREPARAR RELATORIO').first().json.report, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [] } }) }}",
+        "options": {}
+      },
+      "id": "enviar-relatorio",
+      "name": "ENVIAR RELATORIO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5328,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('PREPARAR PUBLICACAO').first().json.twitter_image_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "baixar-imagem-twitter",
+      "name": "BAIXAR IMAGEM TWITTER",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2192,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json;\nconst mediaId = response.data ? response.data.id : null;\nconst prep = $('PREPARAR PUBLICACAO').first().json;\nreturn { json: { media_id: mediaId, upload_success: mediaId ? true : false, tweet_text: prep.twitter.tweet1_hook } };"
+      },
+      "id": "extrair-media-id-twitter",
+      "name": "EXTRAIR MEDIA ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.x.com/2/tweets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.tweet_text, media: { media_ids: [$json.media_id] } }) }}",
+        "options": {}
+      },
+      "id": "tweet-1-com-imagem",
+      "name": "TWEET 1 COM IMAGEM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2864,
+        -512
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "JOtPcRk3KZf7XBAr",
+          "name": "X API Media Upload"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json;\nconst tweetId = response.data ? response.data.id : null;\nreturn { json: { id: tweetId, success: tweetId ? true : false } };"
+      },
+      "id": "extrair-id-tweet1-img",
+      "name": "EXTRAIR ID TWEET1 IMG",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3104,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-img",
+              "leftValue": "={{ $json.twitter_image_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1808,
+        -304
+      ],
+      "id": "if-has-img",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.x.com/2/media/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "media_category",
+              "value": "tweet_image"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "media",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "upload-media-twitter",
+      "name": "UPLOAD MEDIA TWITTER",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2400,
+        -512
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "oAuth2Api": {
+          "id": "JOtPcRk3KZf7XBAr",
+          "name": "X API Media Upload"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-field",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3504,
+        -384
+      ],
+      "id": "edit-fields",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {
+    "EXTRAIR ID TWEET1 IMG": [
+      {
+        "json": {
+          "id": "2001306624791658844",
+          "success": true
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "TRIGGER SOCIAL CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "TIPO DE CALLBACK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TIPO DE CALLBACK?": {
+      "main": [
+        [
+          {
+            "node": "EXTRAIR DADOS CALLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EXECUTAR WF7.2 IMAGE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXTRAIR DADOS CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "RESPONDER CALLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CANCELOU?": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR CANCELADO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BUSCAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR CANCELADO": {
+      "main": [
+        [
+          {
+            "node": "NOTIFICAR CANCELAMENTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR PUBLICACAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR PUBLICACAO": {
+      "main": [
+        [
+          {
+            "node": "PUBLICAR TWITTER?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PUBLICAR TWITTER?": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SKIP TWITTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TWEET 1 HOOK": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TWEET 2 CONTEXTO": {
+      "main": [
+        [
+          {
+            "node": "TWEET 3 BRASIL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TWEET 3 BRASIL": {
+      "main": [
+        [
+          {
+            "node": "TWEET 4 CTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TWEET 4 CTA": {
+      "main": [
+        [
+          {
+            "node": "SALVAR TWITTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SALVAR TWITTER": {
+      "main": [
+        [
+          {
+            "node": "RESULTADO TWITTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RESULTADO TWITTER": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR RELATORIO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SKIP TWITTER": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR RELATORIO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR RELATORIO": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR SESSAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR SESSAO": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR RELATORIO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RESPONDER CALLBACK": {
+      "main": [
+        [
+          {
+            "node": "CANCELOU?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BAIXAR IMAGEM TWITTER": {
+      "main": [
+        [
+          {
+            "node": "UPLOAD MEDIA TWITTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXTRAIR MEDIA ID": {
+      "main": [
+        [
+          {
+            "node": "TWEET 1 COM IMAGEM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TWEET 1 COM IMAGEM": {
+      "main": [
+        [
+          {
+            "node": "EXTRAIR ID TWEET1 IMG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXTRAIR ID TWEET1 IMG": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "BAIXAR IMAGEM TWITTER",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TWEET 1 HOOK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPLOAD MEDIA TWITTER": {
+      "main": [
+        [
+          {
+            "node": "EXTRAIR MEDIA ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "TWEET 2 CONTEXTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "3062d8c7-26f6-4c55-97b5-289cefa44d2d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "ZvWogMCqmetav8Fa",
+  "tags": []
+}

@@ -1,0 +1,416 @@
+{
+  "name": "[BLOG] 4.6 QUICK EDIT CAPTURE",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "trigger-text",
+      "name": "TRIGGER MENSAGEM",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "81fa4854-10af-41a1-86ab-5101140def10",
+      "credentials": {
+        "telegramApi": {
+          "id": "bOTEogqgvoJ84nia",
+          "name": "draft_blog_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "edit_sessions",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chat_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.message.chat.id }}"
+            },
+            {
+              "keyName": "stage",
+              "condition": "eq",
+              "keyValue": "waiting_input"
+            }
+          ]
+        }
+      },
+      "id": "check-session",
+      "name": "BUSCAR SESSAO ATIVA",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "combinator": "and"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "1",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "has-session",
+      "name": "TEM SESSAO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "no-session",
+      "name": "SEM SESSAO (IGNORAR)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "content_posts",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('BUSCAR SESSAO ATIVA').item.json.post_id }}"
+            }
+          ]
+        }
+      },
+      "id": "get-post",
+      "name": "BUSCAR POST",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -112
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar input do usuário baseado no tipo de edição\n\nconst session = $('BUSCAR SESSAO ATIVA').first().json;\nconst post = $('BUSCAR POST').first().json;\nconst userInput = $('TRIGGER MENSAGEM').first().json.message.text;\nconst editType = session.edit_type;\n\nlet isValid = true;\nlet errors = [];\nlet sanitizedValue = userInput.trim();\n\n// Validações por tipo\nswitch (editType) {\n  case 'title':\n    // Título: 10-120 caracteres, sem caracteres especiais problemáticos\n    if (sanitizedValue.length < 10) {\n      isValid = false;\n      errors.push('Título muito curto (mínimo 10 caracteres)');\n    }\n    if (sanitizedValue.length > 120) {\n      isValid = false;\n      errors.push('Título muito longo (máximo 120 caracteres)');\n    }\n    if (/[<>{}\\[\\]]/.test(sanitizedValue)) {\n      isValid = false;\n      errors.push('Título contém caracteres inválidos');\n    }\n    break;\n    \n  case 'tags':\n    // Tags: separadas por vírgula, 1-10 tags, cada tag 2-30 chars\n    const tags = sanitizedValue.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);\n    if (tags.length === 0) {\n      isValid = false;\n      errors.push('Informe pelo menos uma tag');\n    }\n    if (tags.length > 10) {\n      isValid = false;\n      errors.push('Máximo de 10 tags permitido');\n    }\n    for (const tag of tags) {\n      if (tag.length < 2) {\n        isValid = false;\n        errors.push(`Tag \"${tag}\" muito curta (mínimo 2 caracteres)`);\n      }\n      if (tag.length > 30) {\n        isValid = false;\n        errors.push(`Tag \"${tag}\" muito longa (máximo 30 caracteres)`);\n      }\n    }\n    // Sanitiza para array JSON\n    sanitizedValue = JSON.stringify(tags);\n    break;\n    \n  case 'content':\n    // Conteúdo: mínimo 50 caracteres (descrição das alterações)\n    if (sanitizedValue.length < 20) {\n      isValid = false;\n      errors.push('Descreva as alterações com mais detalhes (mínimo 20 caracteres)');\n    }\n    if (sanitizedValue.length > 2000) {\n      isValid = false;\n      errors.push('Descrição muito longa (máximo 2000 caracteres)');\n    }\n    break;\n}\n\n// Prepara valores para preview\nlet originalValue = '';\nlet previewLabel = '';\n\nswitch (editType) {\n  case 'title':\n    originalValue = post.title || '';\n    previewLabel = 'Título';\n    break;\n  case 'tags':\n    originalValue = Array.isArray(post.tags) ? post.tags.join(', ') : (post.tags || '');\n    previewLabel = 'Tags';\n    // Para preview, mostra como lista\n    if (isValid) {\n      sanitizedValue = JSON.parse(sanitizedValue).join(', ');\n    }\n    break;\n  case 'content':\n    originalValue = 'Conteúdo atual do post';\n    previewLabel = 'Alterações solicitadas';\n    break;\n}\n\nreturn {\n  json: {\n    isValid,\n    errors,\n    editType,\n    previewLabel,\n    originalValue,\n    newValue: sanitizedValue,\n    rawInput: userInput,\n    session_id: session.session_id,\n    post_id: session.post_id,\n    chat_id: session.chat_id,\n    message_id: session.message_id,\n    post_title: post.title\n  }\n};"
+      },
+      "id": "validate-input",
+      "name": "VALIDAR INPUT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "combinator": "and"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.isValid }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "is-valid",
+      "name": "VALIDAÇÃO OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=❌ *Validação falhou:*\n\n{{ $json.errors.map(e => '• ' + e).join('\\n') }}\n\n_Tente novamente:_",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "send-errors",
+      "name": "ENVIAR ERROS",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        0
+      ],
+      "webhookId": "dae6ec3b-10be-467c-bfe3-5485f08e7426",
+      "credentials": {
+        "telegramApi": {
+          "id": "bOTEogqgvoJ84nia",
+          "name": "draft_blog_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "edit_sessions",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.session_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stage",
+              "fieldValue": "preview"
+            },
+            {
+              "fieldId": "new_value",
+              "fieldValue": "={{ $json.rawInput }}"
+            },
+            {
+              "fieldId": "original_value",
+              "fieldValue": "={{ $json.originalValue }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "update-session-preview",
+      "name": "ATUALIZAR SESSAO (PREVIEW)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -224
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar mensagem de preview com comparação\n\nconst data = $('VALIDAR INPUT').first().json;\n\nlet message = `✏️ *PREVIEW DA EDIÇÃO*\\n━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\nmessage += `📝 *Campo:* ${data.previewLabel}\\n\\n`;\n\nif (data.editType !== 'content') {\n  message += `📤 *Valor atual:*\\n_${data.originalValue.substring(0, 100)}${data.originalValue.length > 100 ? '...' : ''}_\\n\\n`;\n  message += `📥 *Novo valor:*\\n*${data.newValue.substring(0, 100)}${data.newValue.length > 100 ? '...' : ''}*\\n\\n`;\n} else {\n  message += `📋 *Alterações solicitadas:*\\n_${data.newValue.substring(0, 200)}${data.newValue.length > 200 ? '...' : ''}_\\n\\n`;\n  message += `⚠️ _O conteúdo será processado por AI_\\n\\n`;\n}\n\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n`;\nmessage += `_Confirma esta alteração?_`;\n\n// Botões de confirmação\nconst postId = data.post_id;\nconst inlineKeyboard = [\n  [\n    { text: '✅ Confirmar', callback_data: `qe_confirm_${postId}` },\n    { text: '✏️ Refazer', callback_data: `qe_redo_${postId}` }\n  ],\n  [\n    { text: '❌ Cancelar', callback_data: `qe_cancel_${postId}` }\n  ]\n];\n\nreturn {\n  json: {\n    chat_id: data.chat_id,\n    text: message,\n    parse_mode: 'Markdown',\n    reply_markup: JSON.stringify({ inline_keyboard: inlineKeyboard })\n  }\n};"
+      },
+      "id": "format-preview",
+      "name": "FORMATAR PREVIEW",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8425617313:AAGpAsFfg8tJLHsNHNcjYahArGtj8hUeajk/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "send-preview",
+      "name": "ENVIAR PREVIEW",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        -240
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "TRIGGER MENSAGEM": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR SESSAO ATIVA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR SESSAO ATIVA": {
+      "main": [
+        [
+          {
+            "node": "TEM SESSAO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEM SESSAO?": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR POST",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SEM SESSAO (IGNORAR)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR POST": {
+      "main": [
+        [
+          {
+            "node": "VALIDAR INPUT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VALIDAR INPUT": {
+      "main": [
+        [
+          {
+            "node": "VALIDAÇÃO OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VALIDAÇÃO OK?": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR SESSAO (PREVIEW)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ENVIAR ERROS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR SESSAO (PREVIEW)": {
+      "main": [
+        [
+          {
+            "node": "FORMATAR PREVIEW",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FORMATAR PREVIEW": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR PREVIEW",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "73b8c845-4dcb-42f3-b3d3-c2f884fcbbb3",
+  "meta": {
+    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  },
+  "id": "UoQK3JSa2tzPHpxW",
+  "tags": []
+}
