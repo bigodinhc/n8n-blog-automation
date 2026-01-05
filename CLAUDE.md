@@ -27,8 +27,29 @@ Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]
 - [x] Criado `improvements/ROADMAP_FINAL.md` unificando v1 + v2
 - [x] Renomeados 18 workflows para nova convencao
 
+**Sessao 2026-01-05 (Baltic Exchange):**
+- [x] Criada pasta `baltic/` com estrutura completa
+- [x] Criado prompt `baltic/prompts/baltic_data_extractor.md` para Claude Vision
+- [x] Criada tabela `baltic_indices` no Supabase
+- [ ] WF010: Refatorar workflow para usar Claude Vision (em andamento)
+
+**Sessao 2026-01-05 (Reorganizacao DB):**
+- [x] Removidas 3 tabelas obsoletas (blog_content, blog_content_backup, social_media_queue)
+- [x] Renomeadas 17 tabelas com prefixos numericos por dominio
+- [x] Recriada view vw_blog_drafts com novos nomes
+- [x] Atualizados todos os workflows n8n (WF000-WF008a)
+
+**Sessao 2026-01-05 (Bot SEO + Correcoes WF007):**
+- [x] Criado bot Telegram dedicado `MT_SEO_bot` para aprovacoes SEO
+- [x] WF005a: Atualizado para usar novo bot (token na URL HTTP)
+- [x] WF005b: Atualizado trigger e nodes Telegram para novo bot
+- [x] WF005b: Corrigidos nodes Supabase (BUSCAR POST, ATUALIZAR APROVADO/REJEITADO)
+- [x] WF005b: Corrigidos nodes Telegram (RESPONDER APROVADO/REJEITADO com queryId)
+- [x] WF007: Corrigido AI TWITTER - adicionado `=` no campo text para avaliar expressoes
+- [x] Fluxo SEO testado e funcionando end-to-end
+
 ### PROXIMOS PASSOS (ROADMAP FASE 0)
-1. **Testar fluxo SEO completo**: Aprovar draft e verificar publicacao
+1. ~~**Testar fluxo SEO completo**: Aprovar draft e verificar publicacao~~ CONCLUIDO
 2. **Instalar Rank Math** no WordPress
 3. **Implementar idempotencia**: run_id antes de publicar
 4. **DB Hygiene**: Configurar retencao de execucoes
@@ -55,7 +76,14 @@ O sistema processa feeds RSS, gera artigos com AI, cria imagens, e publica no Wo
 ## Estrutura do Projeto
 
 ```
-n8n-full/
+n8n-blog-automation/
+├── baltic/                     # Modulo Baltic Exchange (NOVO)
+│   ├── README.md               # Documentacao do modulo
+│   ├── prompts/                # Prompts para extracao
+│   │   └── baltic_data_extractor.md
+│   ├── docs/
+│   │   └── INTEGRATION.md      # Detalhes tecnicos
+│   └── samples/                # PDFs de exemplo
 ├── docs/                       # Documentacao
 │   ├── ARCHITECTURE.md         # Arquitetura detalhada
 │   ├── BACKLOG.md              # Backlog de tarefas (PRINCIPAL)
@@ -70,8 +98,7 @@ n8n-full/
 ├── database/
 │   └── schema.sql
 ├── prompts/                    # Prompts de AI extraidos
-│   ├── archiver.md             # WF2 (4/10)
-│   ├── rewriter.md             # WF2 (3/10)
+│   ├── archiver.md             # WF2 (7/10)
 │   ├── editor.md               # WF5 (9/10) - MODELO
 │   ├── twitter.md              # WF7 (7/10)
 │   ├── linkedin.md             # WF7 (2/10) - CRITICO
@@ -108,6 +135,7 @@ n8n-full/
 | WF007b_social_image_callback | t4M4Qav7y3860Bje | Ativo | Aprova imagens sociais |
 | WF008_newsletter_generator | gMknz5KYcdJuu1Eg | Ativo | Gera newsletter |
 | WF008a_newsletter_send_callback | e88ZJNv0ffG8nILx | Ativo | Processa envio |
+| WF010_baltic_email_ingestion | 4kThouFXX7FP9XnX | Em dev | Coleta indices Baltic Exchange |
 
 ## Banco de Dados (Supabase)
 
@@ -116,15 +144,39 @@ n8n-full/
 - **Regiao:** us-east-2
 - **Credential ID:** `04rdCJqTixOtwak5` (nome: "blogging")
 
-### Tabelas Principais
-- `content_posts` - Posts do blog
-- `content_metadata` - Metadados (tags, SEO)
-- `content_workflow` - Estado do workflow por post
-- `post_images` - Imagens geradas
-- `published_content` - Registro de publicacoes
-- `social_media_sessions` - Sessoes de publicacao social
-- `newsletter_history` - Historico de newsletters
-- `iron_ore_prices` - Precos Platts IODEX (~11.500 registros)
+### Tabelas (Reorganizadas 2026-01-05)
+
+**Prefixos por dominio:**
+- `01_ing_*` - Ingestao
+- `02_cnt_*` - Conteudo
+- `03_pub_*` - Publicacao
+- `04_soc_*` - Social
+- `05_news_*` - Newsletter
+- `06_ses_*` - Sessoes
+- `07_mkt_*` - Market Data
+- `08_sys_*` - Sistema
+
+| Tabela | Descricao |
+|--------|-----------|
+| `01_ing_raw_inputs` | Entradas RSS/Telegram/Apify |
+| `01_ing_market_intelligence` | Dados de mercado extraidos |
+| `02_cnt_posts` | Posts do blog (PRINCIPAL) |
+| `02_cnt_metadata` | Metadados SEO, tags |
+| `02_cnt_workflow` | Estado do pipeline por post |
+| `02_cnt_images` | Imagens geradas |
+| `03_pub_content` | Registro de publicacoes WP |
+| `04_soc_sessions` | Sessoes de publicacao social |
+| `05_news_subscribers` | Assinantes da newsletter |
+| `05_news_history` | Historico de newsletters |
+| `05_news_sessions` | Sessoes de envio |
+| `05_news_send_log` | Log de envios |
+| `06_ses_feedback` | Feedback de revisao |
+| `06_ses_edit` | Edicoes rapidas |
+| `07_mkt_iron_ore_prices` | Precos Platts IODEX (~11.500 registros) |
+| `07_mkt_baltic_indices` | Indices Baltic Exchange (BDI, Capesize, etc.) |
+| `08_sys_errors` | Erros do sistema (WF000) |
+
+**View:** `vw_blog_drafts` - Join de posts + metadata + workflow
 
 ## Telegram Bots
 
@@ -133,6 +185,7 @@ n8n-full/
 | BlogDraftsBot | 8375309778 | WF3, WF4, WF4.5, WF5, WF8 |
 | QuickEditBot | 8375309778 | WF4.7 |
 | SocialMediaBot | 8375309778 | WF7, WF7.1, WF7.2 |
+| MT_SEO_bot | 8375309778 | WF005a, WF005b (aprovacao SEO) |
 
 ### Formato de Callback Data
 **IMPORTANTE**: Telegram limita callback_data a 64 bytes!
@@ -191,3 +244,22 @@ mcp__n8n-mcp__n8n_update_partial_workflow id="ID" operations=[...]
 5. **Callbacks Telegram:** Limite de 64 bytes - usar formato curto
 6. **Nomenclatura:** Seguir `NAMING_CONVENTIONS.md` para novos workflows/arquivos
 7. **Roadmap:** Ver `improvements/ROADMAP_FINAL.md` para proximos passos
+8. **Baltic Exchange:** Ver `baltic/README.md` para documentacao do modulo de frete maritimo
+9. **Expressoes n8n:** Campos com `{{ $json.xxx }}` DEVEM comecar com `=` para serem avaliados
+
+## Troubleshooting Comum
+
+### AI Agent nao recebe dados (pede input)
+**Causa:** Campo `text` do AI Agent nao comeca com `=`
+**Solucao:** Adicionar `=` no inicio do campo text
+```
+Antes: "Crie uma thread sobre {{ $json.title }}"
+Depois: "=Crie uma thread sobre {{ $json.title }}"
+```
+
+### Callback Telegram nao funciona
+**Causa:** Workflow de callback inativo ou credential errada
+**Solucao:**
+1. Verificar se workflow esta ativo
+2. Verificar se credential do bot esta correta no trigger
+3. Verificar se `queryId` esta configurado nos nodes de resposta
