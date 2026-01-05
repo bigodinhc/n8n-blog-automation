@@ -2,45 +2,47 @@
 
 ---
 
-## ⚡ TRABALHO EM ANDAMENTO (Atualizado 2026-01-05)
+## TRABALHO EM ANDAMENTO (Atualizado 2026-01-05)
 
 ### Contexto
-Fluxo SEO implementado e funcionando. Pendente apenas teste de integracao completo.
+Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]_[descricao]`.
 
 ### O que ja foi feito
 
 **Sessao 2026-01-04:**
-- [x] WF2: Rewriter removido (economia 50% API)
-- [x] WF6.5 `PREPARAR CONTEUDO WP`: Campos SEO adicionados
-- [x] WF6.5 `PUBLICAR NO WORDPRESS`: Campos Rank Math adicionados
+- [x] WF002: Rewriter removido (economia 50% API)
+- [x] WF006a `PREPARAR CONTEUDO WP`: Campos SEO adicionados
+- [x] WF006a `PUBLICAR NO WORDPRESS`: Campos Rank Math adicionados
 - [x] Supabase MCP configurado
-- [x] WF5.5 SEO ENRICHMENT criado
-- [x] WF5.6 SEO CALLBACK criado
+- [x] WF005a SEO ENRICHMENT criado
+- [x] WF005b SEO CALLBACK criado
 
-**Sessao 2026-01-05 (8 bugs corrigidos):**
-- [x] WF4 `FOI APROVADO?`: Expression corrigida
-- [x] WF4 `CHAMAR WF5.5 SEO`: post_id expression corrigida
-- [x] WF4: Adicionado `VERIFICAR APROVACAO` node (resolve timeout Telegram)
-- [x] WF5.5 `BUSCAR POST APROVADO`: Adicionado `condition: "eq"`
-- [x] WF5.5 `ATUALIZAR SUPABASE`: Adicionado `condition: "eq"`
-- [x] WF5.5: Adicionado node `PREPARAR PROMPT SEO`
-- [x] WF5.5 `ATUALIZAR SUPABASE`: Adicionado fieldsUi config
-- [x] WF5.5 `ATUALIZAR SUPABASE`: Corrigido `fieldId` (era `fieldName`)
+**Sessao 2026-01-05 (Bugs SEO corrigidos):**
+- [x] WF004, WF005a, WF005b: Multiplas correcoes de expressions e filters
+- [x] WF005a `SALVAR MSG ID`: Substituido por Supabase Update
+- [x] WF005b `BUSCAR POST`: Filtro por `seo_telegram_message_id`
 
-### PROXIMO PASSO IMEDIATO
-1. **Testar fluxo completo**: Aprovar um draft e verificar se SEO e salvo
-2. **Ajustar WF5.6** se necessario apos teste
-3. **Usuario instala Rank Math** no WordPress
+**Sessao 2026-01-05 (Padronizacao):**
+- [x] Criado `NAMING_CONVENTIONS.md` com diretrizes de nomenclatura
+- [x] Criado `improvements/ROADMAP_FINAL.md` unificando v1 + v2
+- [x] Renomeados 18 workflows para nova convencao
 
-### Tarefas Pendentes (apos SEO)
+### PROXIMOS PASSOS (ROADMAP FASE 0)
+1. **Testar fluxo SEO completo**: Aprovar draft e verificar publicacao
+2. **Instalar Rank Math** no WordPress
+3. **Ativar WF000_error_handler**: Error Trigger + alertas Telegram
+4. **Implementar idempotencia**: run_id antes de publicar
+
+### Tarefas Pendentes (Qualidade)
 | Prioridade | Tarefa | Nota |
 |------------|--------|------|
-| Alta | Melhorar prompt LinkedIn (WF7) | 2/10 |
-| Alta | Melhorar prompt Instagram (WF7) | 2/10 |
-| Media | Melhorar prompt Newsletter (WF8) | 3/10 |
+| Alta | Melhorar prompt LinkedIn (WF007) | 2/10 |
+| Alta | Melhorar prompt Instagram (WF007) | 2/10 |
+| Media | Melhorar prompt Newsletter (WF008) | 3/10 |
 
 ### Arquivos de Referencia
-- Plano atual: `/Users/hanna/.claude/plans/nifty-kindling-marble.md`
+- Roadmap: `improvements/ROADMAP_FINAL.md`
+- Nomenclatura: `NAMING_CONVENTIONS.md`
 - Backlog: `docs/BACKLOG.md`
 
 ---
@@ -88,24 +90,24 @@ n8n-full/
 
 | Workflow | ID | Status | Funcao |
 |----------|-----|--------|--------|
-| WF0 Error Handler | dxVlQYOyMQ4xxaHt | INATIVO | Tratamento de erros global |
-| WF1 Feed Supabase | TgZ3HSnbbSVHsIzD | Ativo | Ingestao (RSS, Telegram, Apify) |
-| WF2 Content Archiver | LfU5ddiFTiDSrUSp | Ativo | AI gera artigo |
-| WF3 Draft Review | J7G0HJYT2yqL3WQq | Ativo | Preview Telegram |
-| WF4 Callback Drafts | Eqj6uTE4pFizUsKH | Ativo | Processa aprovacao |
-| WF4.5 Feedback Capture | QElqWkwrvoxGKDN4 | Ativo | Captura feedback |
-| WF4.6 Quick Edit Capture | UoQK3JSa2tzPHpxW | Ativo | Captura edicoes |
-| WF4.7 Quick Edit Callbacks | bKvqmScFWW9KK8ur | Ativo | Processa edicoes |
-| WF5 Revision Processor | 5TuCwLZLlGdczwhU | Ativo | AI aplica revisoes |
-| WF5.5 SEO Enrichment | MT3TXgKk6e9K5RHj | Ativo | Enriquece SEO com Perplexity+AI |
-| WF5.6 SEO Callback | Zkibw3SPFF4cZtxG | Ativo | Processa aprovacao SEO |
-| WF6 Image Generator | yr7VUG1VMi8o8fi9 | Ativo | Gera imagem (Gemini) |
-| WF6.5 Image Approval | vqW2Dt3FkbkQPHws | Ativo | Publica no WordPress |
-| WF7 Social Media Factory | KkCUTo9KVfZkfZrE | Ativo | AI gera posts sociais |
-| WF7.1 Social Callback | ZvWogMCqmetav8Fa | Ativo | Publica nas redes |
-| WF7.2 Image Callback | t4M4Qav7y3860Bje | Ativo | Aprova imagens sociais |
-| WF8 Newsletter Generator | gMknz5KYcdJuu1Eg | Ativo | Gera newsletter |
-| WF8.1 Newsletter Callback | e88ZJNv0ffG8nILx | Ativo | Processa envio |
+| WF000_error_handler | dxVlQYOyMQ4xxaHt | Ativo | Tratamento de erros global |
+| WF001_content_feed_ingestion | TgZ3HSnbbSVHsIzD | Ativo | Ingestao (RSS, Telegram, Apify) |
+| WF002_content_ai_generator | LfU5ddiFTiDSrUSp | Ativo | AI gera artigo |
+| WF003_content_draft_preview | J7G0HJYT2yqL3WQq | Ativo | Preview Telegram |
+| WF004_content_approval_callback | Eqj6uTE4pFizUsKH | Inativo | Processa aprovacao |
+| WF004a_content_feedback_capture | QElqWkwrvoxGKDN4 | Ativo | Captura feedback |
+| WF004b_content_quick_edit_capture | UoQK3JSa2tzPHpxW | Ativo | Captura edicoes |
+| WF004c_content_quick_edit_callback | bKvqmScFWW9KK8ur | Ativo | Processa edicoes |
+| WF005_content_revision_processor | 5TuCwLZLlGdczwhU | Ativo | AI aplica revisoes |
+| WF005a_seo_enrichment | MT3TXgKk6e9K5RHj | Ativo | Enriquece SEO com Perplexity+AI |
+| WF005b_seo_approval_callback | Zkibw3SPFF4cZtxG | Ativo | Processa aprovacao SEO |
+| WF006_image_generator | yr7VUG1VMi8o8fi9 | Ativo | Gera imagem (Gemini) |
+| WF006a_image_approval_publish | vqW2Dt3FkbkQPHws | Ativo | Publica no WordPress |
+| WF007_social_content_factory | KkCUTo9KVfZkfZrE | Ativo | AI gera posts sociais |
+| WF007a_social_publish_callback | ZvWogMCqmetav8Fa | Ativo | Publica nas redes |
+| WF007b_social_image_callback | t4M4Qav7y3860Bje | Ativo | Aprova imagens sociais |
+| WF008_newsletter_generator | gMknz5KYcdJuu1Eg | Ativo | Gera newsletter |
+| WF008a_newsletter_send_callback | e88ZJNv0ffG8nILx | Ativo | Processa envio |
 
 ## Banco de Dados (Supabase)
 
@@ -186,5 +188,6 @@ mcp__n8n-mcp__n8n_update_partial_workflow id="ID" operations=[...]
 2. **Prompts criticos:** LinkedIn e Instagram precisam de melhoria urgente
 3. **Modelo de prompt:** Usar WF5 Editor como referencia
 4. **Validacao:** Warnings de typeVersion sao normais apos updates
-5. **Error Handler:** WF0 esta INATIVO - considerar ativar
-6. **Callbacks Telegram:** Limite de 64 bytes - usar formato curto
+5. **Callbacks Telegram:** Limite de 64 bytes - usar formato curto
+6. **Nomenclatura:** Seguir `NAMING_CONVENTIONS.md` para novos workflows/arquivos
+7. **Roadmap:** Ver `improvements/ROADMAP_FINAL.md` para proximos passos
