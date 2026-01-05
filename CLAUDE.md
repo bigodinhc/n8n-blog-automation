@@ -30,8 +30,8 @@ Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]
 ### PROXIMOS PASSOS (ROADMAP FASE 0)
 1. **Testar fluxo SEO completo**: Aprovar draft e verificar publicacao
 2. **Instalar Rank Math** no WordPress
-3. **Ativar WF000_error_handler**: Error Trigger + alertas Telegram
-4. **Implementar idempotencia**: run_id antes de publicar
+3. **Implementar idempotencia**: run_id antes de publicar
+4. **DB Hygiene**: Configurar retencao de execucoes
 
 ### Tarefas Pendentes (Qualidade)
 | Prioridade | Tarefa | Nota |

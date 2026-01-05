@@ -32,34 +32,19 @@
 
 ## FASE 0: URGENTE (Hoje - 7 dias)
 
-### 0.1 CVE Patch + Hardening
+### 0.1 CVE Patch + Hardening - CONCLUIDO
 
 **Severidade:** CRITICA (CVSS 9.9/10)
-**Tempo:** 2-4 horas
-
-```bash
-# Verificar versao
-n8n --version
-
-# Atualizar (se < 1.122.0)
-npm update -g n8n
-```
+**Status:** n8n atualizado para versao mais recente
 
 **Hardening adicional:**
 - [ ] Restringir acesso ao editor (VPN/allowlist IP)
 - [ ] Desabilitar webhooks publicos sem verificacao
 - [ ] Rotacionar tokens/keys expostos
 
-### 0.2 Error Handler (WF000)
+### 0.2 Error Handler (WF000) - CONCLUIDO
 
-**Problema:** Erros silenciosos, sem notificacao
-**Tempo:** 2 horas
-
-**Implementacao:**
-1. Ativar WF000_error_handler existente
-2. Configurar Error Trigger
-3. Classificar severidade P0-P3
-4. Alertar via Telegram
+**Status:** WF000_error_handler ativo
 
 | Nivel | Descricao | Acao |
 |-------|-----------|------|
@@ -445,9 +430,9 @@ MARCO+ 2026
 
 ## PROXIMOS PASSOS IMEDIATOS
 
-### Hoje
-- [ ] Verificar versao n8n (CVE)
-- [ ] Ativar WF000 Error Handler
+### Concluido
+- [x] Verificar versao n8n (CVE) - Atualizado
+- [x] Ativar WF000 Error Handler - Ativo
 
 ### Esta Semana
 - [ ] Implementar retry + idempotencia
@@ -480,5 +465,6 @@ MARCO+ 2026
 
 | Data | Versao | Mudanca |
 |------|--------|---------|
+| 2026-01-05 | 2.1 | CVE patch e Error Handler marcados como concluidos |
 | 2026-01-05 | 2.0 | Unificacao v1 + v2, prioridades corrigidas |
 | 2026-01-05 | 1.0 | Roadmap inicial (v1) |
