@@ -2,30 +2,35 @@
 
 ---
 
-## ⚡ TRABALHO EM ANDAMENTO (Atualizado 2026-01-04)
+## ⚡ TRABALHO EM ANDAMENTO (Atualizado 2026-01-05)
 
 ### Contexto
-Implementando fluxo SEO completo: WF2 gera campos SEO -> Supabase armazena -> WF6.5 envia para WordPress com Rank Math.
+Fluxo SEO implementado e funcionando. Pendente apenas teste de integracao completo.
 
 ### O que ja foi feito
+
+**Sessao 2026-01-04:**
 - [x] WF2: Rewriter removido (economia 50% API)
-- [x] WF6.5 `PREPARAR CONTEUDO WP`: Campos SEO adicionados (meta_title, meta_description, focus_keyword)
-- [x] WF6.5 `PUBLICAR NO WORDPRESS`: Campos Rank Math adicionados (meta[rank_math_title], etc)
+- [x] WF6.5 `PREPARAR CONTEUDO WP`: Campos SEO adicionados
+- [x] WF6.5 `PUBLICAR NO WORDPRESS`: Campos Rank Math adicionados
 - [x] Supabase MCP configurado
+- [x] WF5.5 SEO ENRICHMENT criado
+- [x] WF5.6 SEO CALLBACK criado
+
+**Sessao 2026-01-05 (8 bugs corrigidos):**
+- [x] WF4 `FOI APROVADO?`: Expression corrigida
+- [x] WF4 `CHAMAR WF5.5 SEO`: post_id expression corrigida
+- [x] WF4: Adicionado `VERIFICAR APROVACAO` node (resolve timeout Telegram)
+- [x] WF5.5 `BUSCAR POST APROVADO`: Adicionado `condition: "eq"`
+- [x] WF5.5 `ATUALIZAR SUPABASE`: Adicionado `condition: "eq"`
+- [x] WF5.5: Adicionado node `PREPARAR PROMPT SEO`
+- [x] WF5.5 `ATUALIZAR SUPABASE`: Adicionado fieldsUi config
+- [x] WF5.5 `ATUALIZAR SUPABASE`: Corrigido `fieldId` (era `fieldName`)
 
 ### PROXIMO PASSO IMEDIATO
-1. **Usar Supabase MCP** para ver estrutura das tabelas:
-   - `content_posts`
-   - `content_metadata`
-   - `content_workflow`
-
-2. **Criar view `vw_blog_drafts`** com JOIN correto para incluir campos SEO
-
+1. **Testar fluxo completo**: Aprovar um draft e verificar se SEO e salvo
+2. **Ajustar WF5.6** se necessario apos teste
 3. **Usuario instala Rank Math** no WordPress
-
-### Bloqueio Anterior
-Tentamos criar a view mas deu erro porque nao sabemos a estrutura exata das tabelas.
-Erros: `column cm.primary_keyword does not exist` e `column cp.status does not exist`
 
 ### Tarefas Pendentes (apos SEO)
 | Prioridade | Tarefa | Nota |
@@ -35,7 +40,7 @@ Erros: `column cm.primary_keyword does not exist` e `column cp.status does not e
 | Media | Melhorar prompt Newsletter (WF8) | 3/10 |
 
 ### Arquivos de Referencia
-- Plano completo: `/Users/hanna/.claude/plans/groovy-launching-globe.md`
+- Plano atual: `/Users/hanna/.claude/plans/nifty-kindling-marble.md`
 - Backlog: `docs/BACKLOG.md`
 
 ---
@@ -92,6 +97,8 @@ n8n-full/
 | WF4.6 Quick Edit Capture | UoQK3JSa2tzPHpxW | Ativo | Captura edicoes |
 | WF4.7 Quick Edit Callbacks | bKvqmScFWW9KK8ur | Ativo | Processa edicoes |
 | WF5 Revision Processor | 5TuCwLZLlGdczwhU | Ativo | AI aplica revisoes |
+| WF5.5 SEO Enrichment | MT3TXgKk6e9K5RHj | Ativo | Enriquece SEO com Perplexity+AI |
+| WF5.6 SEO Callback | Zkibw3SPFF4cZtxG | Ativo | Processa aprovacao SEO |
 | WF6 Image Generator | yr7VUG1VMi8o8fi9 | Ativo | Gera imagem (Gemini) |
 | WF6.5 Image Approval | vqW2Dt3FkbkQPHws | Ativo | Publica no WordPress |
 | WF7 Social Media Factory | KkCUTo9KVfZkfZrE | Ativo | AI gera posts sociais |

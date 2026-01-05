@@ -1,7 +1,7 @@
 # BACKLOG - Blog System Automation
 
 > **Projeto:** Minerals Trading Daily
-> **Ultima Atualizacao:** 2026-01-04
+> **Ultima Atualizacao:** 2026-01-05
 > **Consolidado de:** IMPROVEMENT_SUGGESTIONS.md, PROMPT_IMPROVEMENTS_PLAN.md, QUICK_WINS.md
 
 ---
@@ -53,25 +53,27 @@
 
 ---
 
-## 🔴 EM ANDAMENTO - SEO
+## 🟡 EM TESTE - SEO
 
-### Implementacao SEO (Bloqueado)
+### Implementacao SEO
 
-**Status:** Aguardando correcao da view Supabase
+**Status:** Pronto para teste de integracao
 
 | Etapa | Status | Descricao |
 |-------|--------|-----------|
+| WF5.5 SEO ENRICHMENT | ✅ | Perplexity + AI gera campos SEO |
+| WF5.6 SEO CALLBACK | ⚠️ | Criado, precisa ajustes |
+| WF4 integracao | ✅ | Chama WF5.5 apos aprovacao |
 | WF6.5 PREPARAR CONTEUDO WP | ✅ | Campos SEO extraidos |
 | WF6.5 PUBLICAR NO WORDPRESS | ✅ | Campos Rank Math enviados |
-| View vw_blog_drafts | ❌ BLOQUEADO | Precisa JOIN com content_metadata |
 | Instalar Rank Math | ⏳ PENDENTE | Usuario instala no WordPress |
 
-**Proximo passo:** Usar Supabase MCP para ver estrutura das tabelas e criar view correta
+**Proximo passo:** Testar fluxo completo aprovando um draft
 
 **Campos Rank Math a enviar:**
 - `meta[rank_math_title]` <- meta_title
 - `meta[rank_math_description]` <- meta_description
-- `meta[rank_math_focus_keyword]` <- primary_keyword (ou primeira tag)
+- `meta[rank_math_focus_keyword]` <- focus_keyword
 
 ---
 
@@ -383,6 +385,8 @@ O prompt do WF5 e o melhor do sistema. Contem:
 | WF4.6 | Quick Edit Capture | `UoQK3JSa2tzPHpxW` |
 | WF4.7 | Quick Edit Callbacks | `bKvqmScFWW9KK8ur` |
 | WF5 | Revision Processor | `5TuCwLZLlGdczwhU` |
+| WF5.5 | SEO Enrichment | `MT3TXgKk6e9K5RHj` |
+| WF5.6 | SEO Callback | `Zkibw3SPFF4cZtxG` |
 | WF6 | Image Generator | `yr7VUG1VMi8o8fi9` |
 | WF6.5 | Image Approval | `vqW2Dt3FkbkQPHws` |
 | WF7 | Social Media Factory | `KkCUTo9KVfZkfZrE` |
@@ -410,6 +414,19 @@ O prompt do WF5 e o melhor do sistema. Contem:
 ---
 
 ## 📝 CHANGELOG
+
+### 2026-01-05
+- **8 BUGS CORRIGIDOS** no fluxo SEO (WF4 e WF5.5):
+  - WF4 `FOI APROVADO?`: Expression corrigida (sempre retornava FALSE)
+  - WF4 `CHAMAR WF5.5 SEO`: post_id expression corrigida
+  - WF4: Adicionado node `VERIFICAR APROVACAO` (resolve timeout Telegram 30s)
+  - WF5.5 `BUSCAR POST APROVADO`: Adicionado `condition: "eq"` no filter Supabase
+  - WF5.5 `ATUALIZAR SUPABASE`: Adicionado `condition: "eq"` no filter
+  - WF5.5: Adicionado node `PREPARAR PROMPT SEO` entre Perplexity e AI
+  - WF5.5 `ATUALIZAR SUPABASE`: Adicionado fieldsUi config
+  - WF5.5 `ATUALIZAR SUPABASE`: Corrigido formato `fieldId` (era `fieldName`)
+- Estrutura Supabase `content_metadata` confirmada: meta_title, meta_description, focus_keyword, secondary_keywords, seo_enriched_at
+- Fluxo SEO pronto para teste de integracao
 
 ### 2026-01-04
 - **WF2 OTIMIZADO:** Removido node Rewriter redundante
