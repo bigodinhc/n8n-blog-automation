@@ -31,7 +31,16 @@ Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]
 - [x] Criada pasta `baltic/` com estrutura completa
 - [x] Criado prompt `baltic/prompts/baltic_data_extractor.md` para Claude Vision
 - [x] Criada tabela `baltic_indices` no Supabase
-- [ ] WF010: Refatorar workflow para usar Claude Vision (em andamento)
+- [x] WF010: Refatorado workflow para usar Claude Vision
+
+**Sessao 2026-01-05 (Baltic Trigger Optimization):**
+- [x] WF010: Removido TRIGGER OUTLOOK (polling problematico)
+- [x] WF010: Adicionado TRIGGER SCHEDULE (cron `0,30 9,10 * * 1-5`)
+- [x] WF010: Horarios de execucao: 9:00, 9:30, 10:00, 10:30 seg-sex
+- [x] WF010: DEDUPE configurado para evitar duplicatas por email ID
+- [x] WF010: Template WhatsApp atualizado com rotas C2, C3, C5, C7, C8
+- [x] WF010: Emojis melhorados para tipos de navio (🔷🔶🔸▫️)
+- [x] Confirmado UNIQUE constraint em `report_date` (proteção duplicatas)
 
 **Sessao 2026-01-05 (Reorganizacao DB):**
 - [x] Removidas 3 tabelas obsoletas (blog_content, blog_content_backup, social_media_queue)
@@ -135,7 +144,7 @@ n8n-blog-automation/
 | WF007b_social_image_callback | t4M4Qav7y3860Bje | Ativo | Aprova imagens sociais |
 | WF008_newsletter_generator | gMknz5KYcdJuu1Eg | Ativo | Gera newsletter |
 | WF008a_newsletter_send_callback | e88ZJNv0ffG8nILx | Ativo | Processa envio |
-| WF010_baltic_email_ingestion | 4kThouFXX7FP9XnX | Em dev | Coleta indices Baltic Exchange |
+| WF010_baltic_email_ingestion | 4kThouFXX7FP9XnX | Ativo | Coleta indices Baltic Exchange |
 
 ## Banco de Dados (Supabase)
 
@@ -174,6 +183,7 @@ n8n-blog-automation/
 | `06_ses_edit` | Edicoes rapidas |
 | `07_mkt_iron_ore_prices` | Precos Platts IODEX (~11.500 registros) |
 | `07_mkt_baltic_indices` | Indices Baltic Exchange (BDI, Capesize, etc.) |
+| `07_mkt_baltic_routes` | Rotas detalhadas Baltic (C2, C3, C5, C7, C8, etc.) |
 | `08_sys_errors` | Erros do sistema (WF000) |
 
 **View:** `vw_blog_drafts` - Join de posts + metadata + workflow
