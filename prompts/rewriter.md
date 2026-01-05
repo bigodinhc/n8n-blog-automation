@@ -1,8 +1,13 @@
-# Rewriter Prompt
+# Rewriter Prompt [REMOVIDO]
 
-**Workflow:** WF2 - Content Archiver
-**Node:** Rewriter
-**Modelo:** Claude Sonnet 3.7
+> **STATUS:** REMOVIDO em 2026-01-04
+> **Motivo:** Redundante - Archiver ja faz reescrita completa
+> **Economia:** ~50% em custos de API Anthropic
+> **Backup:** `backups/WF2-pre-optimization.json`
+
+~~**Workflow:** WF2 - Content Archiver~~
+~~**Node:** Rewriter~~
+~~**Modelo:** Claude Sonnet 3.7~~
 
 ## System Message
 

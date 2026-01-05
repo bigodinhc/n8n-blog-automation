@@ -135,11 +135,17 @@ Confirme:
 
 ## Nota de Qualidade
 
-**Nota:** 4/10
+**Nota:** 7/10 (Atualizado 2026-01-04)
 
-**Problemas:**
-- Sem exemplos few-shot de transformacao RSS -> Artigo
-- Regras claras mas faltam exemplos de output
+**Pontos Fortes:**
+- Persona bem definida (jornalista senior Reuters/Bloomberg)
+- Regras PERMITIDO/PROIBIDO claras
+- Escala de linguagem para variacoes de preco
+- Exemplos few-shot de INPUT -> OUTPUT (2 exemplos completos)
+- Validacao de dados numericos obrigatoria
+- Output JSON estruturado com numeric_data
 
-**Sugestao de Melhoria:**
-Adicionar 2-3 exemplos completos de INPUT (RSS) -> OUTPUT (Artigo JSON)
+**Historico:**
+- 2026-01-04: Node Rewriter REMOVIDO do workflow (redundante)
+- Archiver agora e o unico AI Agent no WF2
+- Economia de ~50% em custos de API

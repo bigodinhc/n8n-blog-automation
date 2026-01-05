@@ -1,7 +1,7 @@
 # BACKLOG - Blog System Automation
 
 > **Projeto:** Minerals Trading Daily
-> **Ultima Atualizacao:** 2025-01-04
+> **Ultima Atualizacao:** 2026-01-04
 > **Consolidado de:** IMPROVEMENT_SUGGESTIONS.md, PROMPT_IMPROVEMENTS_PLAN.md, QUICK_WINS.md
 
 ---
@@ -36,6 +36,42 @@
 |------|----------|--------|
 | ✅ | WF0 Error Handler | Ativo (verificar se funcionando) |
 | ✅ | WF8.1 Newsletter Callback | Ativo |
+
+### Otimizacoes (Sessao 04/01/2026)
+
+| Item | Workflow | Descricao |
+|------|----------|-----------|
+| ✅ | WF2 | Removido node Rewriter redundante (-50% custo API) |
+| ✅ | WF6.5 | Node PREPARAR CONTEUDO WP: campos SEO adicionados |
+| ✅ | WF6.5 | Node PUBLICAR NO WORDPRESS: campos Rank Math adicionados |
+
+### Infraestrutura (Sessao 04/01/2026)
+
+| Item | Descricao |
+|------|-----------|
+| ✅ | Supabase MCP configurado para Claude Code |
+
+---
+
+## 🔴 EM ANDAMENTO - SEO
+
+### Implementacao SEO (Bloqueado)
+
+**Status:** Aguardando correcao da view Supabase
+
+| Etapa | Status | Descricao |
+|-------|--------|-----------|
+| WF6.5 PREPARAR CONTEUDO WP | ✅ | Campos SEO extraidos |
+| WF6.5 PUBLICAR NO WORDPRESS | ✅ | Campos Rank Math enviados |
+| View vw_blog_drafts | ❌ BLOQUEADO | Precisa JOIN com content_metadata |
+| Instalar Rank Math | ⏳ PENDENTE | Usuario instala no WordPress |
+
+**Proximo passo:** Usar Supabase MCP para ver estrutura das tabelas e criar view correta
+
+**Campos Rank Math a enviar:**
+- `meta[rank_math_title]` <- meta_title
+- `meta[rank_math_description]` <- meta_description
+- `meta[rank_math_focus_keyword]` <- primary_keyword (ou primeira tag)
 
 ---
 
@@ -176,29 +212,7 @@ Versao ultra-resumida para mobile.
 
 ## 🟠 PENDENTE - ALTO
 
-### 5. Investigar WF2 Chamadas AI Duplicadas
-
-**Workflow:** `LfU5ddiFTiDSrUSp`
-
-**Problema:** Archiver + Rewriter chamados em serie.
-- Archiver: Gera artigo estruturado
-- Rewriter: Reescreve para "protecao de IP"
-
-**Impacto:**
-- Custo dobrado com Anthropic
-- Risco de distorcao em cascata
-- Tempo de processamento duplicado
-
-**Investigacao:**
-1. [ ] Verificar se Rewriter e realmente necessario
-2. [ ] Se sim, usar modelo mais barato (Haiku?)
-3. [ ] Se nao, remover node
-
-**Esforco:** 30 minutos investigacao + 30 minutos correcao
-
----
-
-### 6. Adicionar Few-Shot ao WF6 Image
+### 5. Adicionar Few-Shot ao WF6 Image (antigo #6)
 
 **Workflow:** `yr7VUG1VMi8o8fi9` | Node: `AI GERAR PROMPT IMAGEM`
 
@@ -328,12 +342,12 @@ Sugerido: Twitter ─┬─ LinkedIn ─┬─ Instagram (paralelo)
 
 ## 📊 ANALISE DE PROMPTS
 
-### Notas por Workflow (Analise 2025-01-04)
+### Notas por Workflow (Atualizado 2026-01-04)
 
 | Workflow | Node | Few-Shot | Persona | Constraints | Nota |
 |----------|------|----------|---------|-------------|------|
-| WF2 | Archiver | ❌ | ⚠️ | ⚠️ | 4/10 |
-| WF2 | Rewriter | ❌ | ⚠️ | ❌ | 3/10 |
+| WF2 | Archiver | ✅ 2 exemplos | ✅ | ✅ | 7/10 |
+| ~~WF2~~ | ~~Rewriter~~ | - | - | - | REMOVIDO |
 | **WF5** | **Editor** | **✅ 5 exemplos** | **✅** | **✅** | **9/10** |
 | WF6 | Image Prompt | ⚠️ Conceitual | ✅ | ❌ | 6/10 |
 | WF7 | Twitter | ⚠️ Parcial | ✅ | ✅ | 7/10 |
@@ -396,6 +410,15 @@ O prompt do WF5 e o melhor do sistema. Contem:
 ---
 
 ## 📝 CHANGELOG
+
+### 2026-01-04
+- **WF2 OTIMIZADO:** Removido node Rewriter redundante
+  - Economia de ~50% em custos de API Anthropic
+  - Fluxo simplificado: Archiver → Code → INSERT (antes passava por Rewriter)
+  - Conexoes AI limpas automaticamente
+  - Backup salvo em `backups/WF2-pre-optimization.json`
+- Atualizada analise de prompts: Archiver agora 7/10 (ja tinha few-shot)
+- Renumerados itens pendentes
 
 ### 2025-01-04
 - Documento consolidado de 3 arquivos

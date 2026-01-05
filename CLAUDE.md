@@ -1,5 +1,45 @@
 # Blog System Automation - Minerals Trading Daily
 
+---
+
+## ⚡ TRABALHO EM ANDAMENTO (Atualizado 2026-01-04)
+
+### Contexto
+Implementando fluxo SEO completo: WF2 gera campos SEO -> Supabase armazena -> WF6.5 envia para WordPress com Rank Math.
+
+### O que ja foi feito
+- [x] WF2: Rewriter removido (economia 50% API)
+- [x] WF6.5 `PREPARAR CONTEUDO WP`: Campos SEO adicionados (meta_title, meta_description, focus_keyword)
+- [x] WF6.5 `PUBLICAR NO WORDPRESS`: Campos Rank Math adicionados (meta[rank_math_title], etc)
+- [x] Supabase MCP configurado
+
+### PROXIMO PASSO IMEDIATO
+1. **Usar Supabase MCP** para ver estrutura das tabelas:
+   - `content_posts`
+   - `content_metadata`
+   - `content_workflow`
+
+2. **Criar view `vw_blog_drafts`** com JOIN correto para incluir campos SEO
+
+3. **Usuario instala Rank Math** no WordPress
+
+### Bloqueio Anterior
+Tentamos criar a view mas deu erro porque nao sabemos a estrutura exata das tabelas.
+Erros: `column cm.primary_keyword does not exist` e `column cp.status does not exist`
+
+### Tarefas Pendentes (apos SEO)
+| Prioridade | Tarefa | Nota |
+|------------|--------|------|
+| Alta | Melhorar prompt LinkedIn (WF7) | 2/10 |
+| Alta | Melhorar prompt Instagram (WF7) | 2/10 |
+| Media | Melhorar prompt Newsletter (WF8) | 3/10 |
+
+### Arquivos de Referencia
+- Plano completo: `/Users/hanna/.claude/plans/groovy-launching-globe.md`
+- Backlog: `docs/BACKLOG.md`
+
+---
+
 ## Visao Geral do Projeto
 
 Sistema de automacao de blog para o site mineralstradingdaily.com.br usando n8n workflows.
@@ -102,12 +142,12 @@ Ver `prompts/README.md` para analise completa.
 | Prompt | Nota | Status |
 |--------|------|--------|
 | Editor (WF5) | 9/10 | MODELO A SEGUIR |
+| Archiver (WF2) | 7/10 | Atualizado 2026-01-04 |
 | Twitter (WF7) | 7/10 | Bom |
-| Archiver (WF2) | 4/10 | Precisa melhoria |
 | Newsletter (WF8) | 3/10 | Precisa melhoria |
-| Rewriter (WF2) | 3/10 | Investigar necessidade |
 | LinkedIn (WF7) | 2/10 | CRITICO |
 | Instagram (WF7) | 2/10 | CRITICO |
+| ~~Rewriter (WF2)~~ | - | REMOVIDO 2026-01-04 |
 
 ## Comandos MCP Uteis
 
