@@ -42,21 +42,21 @@ End-to-end automated blog system for the iron ore commodities market, powering [
 ## Architecture
 
 ```
-INGESTION              PROCESSING                    PUBLISHING
+INGESTION              PROCESSING                           PUBLISHING
 
-  RSS ──────┐                                        WordPress
-  Telegram ─┼──► WF1 ──► WF2 ──► WF3 ──► WF4 ──► WF6 ──► WF6.5 ─┬──► Blog
-  Apify ────┘    Feed   Content  Draft  Approve  Image  Publish │
-                         │         │                            │
-                         │         ▼                            ├──► Twitter
-                         │     Feedback                         │
-                         │      WF4.5                           ├──► LinkedIn*
-                         │         │                            │
-                         ▼         ▼                            └──► Instagram*
-                      WF5 ◄── Revision
-                                   │
-  Schedule 17h ──────► WF8 ──► WF8.1 ──────────────────────────────► Email*
-                    Newsletter
+  RSS ──────┐                                               WordPress
+  Telegram ─┼──► WF001 ──► WF002 ──► WF003 ──► WF004 ──► WF006 ──► WF006a ─┬──► Blog
+  Apify ────┘    Feed     Content   Draft    Approve   Image    Publish  │
+                            │         │                                   │
+                            │         ▼                                   ├──► Twitter
+                            │     Feedback                                │
+                            │      WF004a                                 ├──► LinkedIn*
+                            │         │                                   │
+                            ▼         ▼                                   └──► Instagram*
+                         WF005 ◄── Revision
+                                      │
+  Schedule 17h ──────► WF008 ──► WF008a ──────────────────────────────────► Email*
+                     Newsletter
 
   * = pending integration
 ```
@@ -100,43 +100,45 @@ n8n-blog-automation/
 
 ## Workflows (18 active)
 
+> Naming convention: `WF[XXX]_[type]_[description]` - See [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md)
+
 ### Content Pipeline
-| ID | Name | Function |
-|----|------|----------|
-| WF1 | Feed Supabase | Data ingestion (RSS, Telegram, Apify) |
-| WF2 | Content Archiver | AI generates structured article |
-| WF3 | Draft Review | Telegram preview with buttons |
-| WF4 | Callback Drafts | Process approval/rejection |
-| WF4.5 | Feedback Capture | Capture text feedback |
-| WF4.6 | Quick Edit Capture | Capture inline edits |
-| WF4.7 | Quick Edit Callbacks | Process quick edits |
-| WF5 | Revision Processor | AI applies revisions |
+| Workflow | Function |
+|----------|----------|
+| WF001_content_feed_ingestion | Data ingestion (RSS, Telegram, Apify) |
+| WF002_content_ai_generator | AI generates structured article |
+| WF003_content_draft_preview | Telegram preview with buttons |
+| WF004_content_approval_callback | Process approval/rejection |
+| WF004a_content_feedback_capture | Capture text feedback |
+| WF004b_content_quick_edit_capture | Capture inline edits |
+| WF004c_content_quick_edit_callback | Process quick edits |
+| WF005_content_revision_processor | AI applies revisions |
+| WF005a_seo_enrichment | SEO optimization with Perplexity+AI |
+| WF005b_seo_approval_callback | Process SEO approval |
 
 ### Image Pipeline
-| ID | Name | Function |
-|----|------|----------|
-| WF6 | Image Generator | GPT-4 prompt → Gemini image |
-| WF6.5 | Image Approval | Approve & publish to WordPress |
+| Workflow | Function |
+|----------|----------|
+| WF006_image_generator | GPT-4 prompt → Gemini image |
+| WF006a_image_approval_publish | Approve & publish to WordPress |
 
 ### Social Media Pipeline
-| ID | Name | Function |
-|----|------|----------|
-| WF7 | Social Media Factory | AI generates content for 3 platforms |
-| WF7.1 | Social Callback | Publish to networks |
-| WF7.2 | Image Callback | Approve social images |
+| Workflow | Function |
+|----------|----------|
+| WF007_social_content_factory | AI generates content for 3 platforms |
+| WF007a_social_publish_callback | Publish to networks |
+| WF007b_social_image_callback | Approve social images |
 
 ### Newsletter Pipeline
-| ID | Name | Function |
-|----|------|----------|
-| WF8 | Newsletter Generator | Daily newsletter (5pm) |
-| WF8.1 | Newsletter Callback | Process approval & send |
+| Workflow | Function |
+|----------|----------|
+| WF008_newsletter_generator | Daily newsletter (5pm) |
+| WF008a_newsletter_send_callback | Process approval & send |
 
 ### Utilities
-| ID | Name | Function |
-|----|------|----------|
-| WF0 | Error Handler | Centralized error handling |
-| Alerts | Proactive Alerts | System monitoring (2h intervals) |
-| CMD | Telegram Commands | Admin commands (/status, /queue) |
+| Workflow | Function |
+|----------|----------|
+| WF000_error_handler | Centralized error handling (active) |
 
 ## Integrations
 
@@ -176,18 +178,18 @@ cd n8n-blog-automation
 
 1. Create credentials in n8n for each service
 2. Update credential IDs in workflows (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md))
-3. Activate workflows in order: WF0 → WF1 → WF2 → ...
+3. Activate workflows in order: WF000 → WF001 → WF002 → ...
 
 ## AI Prompt Quality
 
-| Prompt | Score | Priority |
-|--------|-------|----------|
-| Editor (WF5) | **9/10** | Reference model |
-| Twitter (WF7) | 7/10 | Good |
-| Archiver (WF2) | 4/10 | Needs improvement |
-| Newsletter (WF8) | 3/10 | Needs improvement |
-| LinkedIn (WF7) | **2/10** | Critical |
-| Instagram (WF7) | **2/10** | Critical |
+| Prompt | Workflow | Score | Priority |
+|--------|----------|-------|----------|
+| Editor | WF005 | **9/10** | Reference model |
+| Twitter | WF007 | 7/10 | Good |
+| Archiver | WF002 | 7/10 | Updated 2026-01 |
+| Newsletter | WF008 | 3/10 | Needs improvement |
+| LinkedIn | WF007 | **2/10** | Critical |
+| Instagram | WF007 | **2/10** | Critical |
 
 See [prompts/README.md](prompts/README.md) for detailed analysis and improvement suggestions.
 
@@ -197,6 +199,8 @@ See [prompts/README.md](prompts/README.md) for detailed analysis and improvement
 |----------|-------------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Complete technical architecture |
 | [BACKLOG.md](docs/BACKLOG.md) | Tasks, priorities, and roadmap |
+| [ROADMAP_FINAL.md](improvements/ROADMAP_FINAL.md) | Unified improvement roadmap |
+| [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) | Naming guidelines |
 | [SEO_ANALYSIS.md](docs/SEO_ANALYSIS.md) | Website SEO audit |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 
@@ -207,7 +211,7 @@ We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) 
 **Priority areas:**
 1. Improve LinkedIn/Instagram prompts (2/10 → 8/10)
 2. Add few-shot examples to prompts
-3. Activate and test Error Handler (WF0)
+3. Implement retry + idempotency (avoid duplicates)
 4. LinkedIn/Instagram API integration
 
 ## License
