@@ -1,0 +1,799 @@
+{
+  "name": "WF002_DEV_rag_generator",
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2400,
+        -96
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2192,
+        -96
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */2 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "date-time",
+      "name": "Date & Time",
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -1968,
+        -96
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "get-news",
+      "name": "Get News",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1520,
+        -96
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "01_ing_market_intelligence",
+        "returnAll": false,
+        "limit": 5,
+        "filterType": "string",
+        "filterString": "blog_processed=eq.false"
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "id": "loop-items",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1296,
+        -96
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "prepare-data",
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1072,
+        -96
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nreturn [{\n  json: {\n    intelligence_id: item.id,\n    title: item.title || 'Market Update',\n    summary: item.summary_pt || '',\n    content: item.original_content || '',\n    tier: item.tier || 'TIER_2',\n    category: item.category || 'market_update',\n    created_at: item.created_at\n  }\n}];"
+      }
+    },
+    {
+      "id": "rag-embedding",
+      "name": "RAG_1 EMBEDDING",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -848,
+        -96
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"text-embedding-3-small\",\n  \"input\": \"{{ $json.title }} {{ $json.summary }}\"\n}",
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "JqKcQwXZ4o66Bxdl",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "id": "rag-check-dup",
+      "name": "RAG_2 CHECK DUPLICATE",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        -96
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "09_rag_knowledge_chunks",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "string",
+        "filterString": "source_type=eq.post"
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "id": "rag-if-dup",
+      "name": "RAG_3 IS DUPLICATE?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -400,
+        -96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-dup",
+              "leftValue": "={{ false }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "rag-search",
+      "name": "RAG_4 HYBRID SEARCH",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        -96
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "09_rag_knowledge_chunks",
+        "returnAll": false,
+        "limit": 5,
+        "filterType": "string",
+        "filterString": "source_type=eq.post&is_active=eq.true"
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "id": "rag-prices",
+      "name": "RAG_5 GET PRICES",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        48,
+        -96
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "07_mkt_iron_ore_prices",
+        "returnAll": false,
+        "limit": 7,
+        "filterType": "string",
+        "filterString": "symbol=eq.IODEX"
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "id": "rag-glossary",
+      "name": "RAG_6 GET GLOSSARY",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -96
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "09_rag_glossary",
+        "returnAll": false,
+        "limit": 10
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    },
+    {
+      "id": "rag-context",
+      "name": "RAG_7 BUILD CONTEXT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -96
+      ],
+      "parameters": {
+        "jsCode": "// Monta contexto RAG para o AI Agent\nconst preparedData = $('Prepare Data').first().json;\nconst similarPosts = $('RAG_4 HYBRID SEARCH').all();\nconst prices = $('RAG_5 GET PRICES').all();\nconst glossary = $('RAG_6 GET GLOSSARY').all();\n\n// Posts similares\nconst postsContext = similarPosts.length > 0 \n  ? similarPosts.map((p, i) => `### Post ${i+1}\\n${p.json.chunk_text?.substring(0, 300) || 'N/A'}...`).join('\\n\\n')\n  : 'Nenhum post similar encontrado.';\n\n// Precos recentes\nconst pricesContext = prices.length > 0\n  ? prices.map(p => `${p.json.symbol}: $${p.json.price} (${p.json.assessed_date})`).join('\\n')\n  : 'Precos nao disponiveis.';\n\n// Glossario\nconst glossaryContext = glossary.length > 0\n  ? glossary.map(g => `**${g.json.term}**: ${g.json.definition}`).join('\\n')\n  : '';\n\nconst ragContext = `\n## CONTEXTO RAG\n\n### Posts Anteriores Relacionados\n${postsContext}\n\n### Precos Recentes\n${pricesContext}\n\n### Glossario\n${glossaryContext}\n`;\n\nreturn [{\n  json: {\n    ...preparedData,\n    rag_context: ragContext,\n    similar_posts_count: similarPosts.length,\n    has_price_data: prices.length > 0\n  }\n}];"
+      }
+    },
+    {
+      "id": "no-duplicate",
+      "name": "STOP DUPLICATE",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        104
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "anthropic-chat-model",
+      "name": "Anthropic Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        720,
+        128
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-3-7-sonnet-20250219",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 3.7"
+        },
+        "options": {
+          "maxTokensToSample": 6000
+        }
+      },
+      "credentials": {
+        "anthropicApi": {
+          "id": "fjN5QtG5xAcoiOWE",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "id": "think-tool",
+      "name": "Think",
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1,
+      "position": [
+        720,
+        280
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "archiver-agent",
+      "name": "Archiver RAG",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        -96
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Transforme os dados de mercado em uma NOTICIA.\n\n## DADOS\nTier: {{$('Prepare Data').item.json.tier}}\nTitulo: {{$('Prepare Data').item.json.original_title}}\nConteudo: {{$('Prepare Data').item.json.blob_content}}\n\n## CONTEXTO RAG\n{{ $('RAG_7 BUILD CONTEXT').item.json.rag_context }}\n\nRETORNE JSON com: title, slug, excerpt, content_html, categories, tags, structured_data",
+        "options": {
+          "systemMessage": "Voce e jornalista especializado em commodities. Reescreva noticias para o blog Minerals Trading Daily em portugues BR."
+        }
+      }
+    },
+    {
+      "id": "process-output",
+      "name": "Process AI Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        -96
+      ],
+      "parameters": {
+        "jsCode": "// Processa output do AI Agent\nconst agentOutput = $input.first().json.output;\nconst intelligenceData = $('Prepare Data').first().json;\n\nfunction sanitizeJsonString(str) {\n  if (!str) return str;\n  str = str.replace(/[\\u201C\\u201D\\u201E\\u201F\\u2033\\u2036]/g, '\"')\n    .replace(/[\\u2018\\u2019\\u201A\\u201B\\u2032\\u2035]/g, \"'\")\n    .replace(/[\\u00AB\\u00BB]/g, '\"')\n    .replace(/[\\u2014\\u2013]/g, '-')\n    .replace(/\\u2026/g, '...')\n    .replace(/\\u00A0/g, ' ');\n  str = str.replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '');\n  return str;\n}\n\nfunction extractJsonFromOutput(output) {\n  if (!output) throw new Error('Output vazio');\n  let cleaned = sanitizeJsonString(output);\n  cleaned = cleaned.replace(/^```json\\s*\\n?/gi, '').replace(/^```\\s*\\n?/gi, '').replace(/\\n?```\\s*$/gi, '').trim();\n  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {\n    const jsonMatch = cleaned.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) cleaned = jsonMatch[0];\n    else throw new Error('JSON nao encontrado');\n  }\n  try { return JSON.parse(cleaned); }\n  catch (e) {\n    let fixed = cleaned.replace(/\\r\\n/g, ' ').replace(/\\n/g, ' ').replace(/\\s+/g, ' ');\n    return JSON.parse(fixed);\n  }\n}\n\nfunction generateUniqueSlug(baseText, intelligenceId) {\n  let cleanSlug = (baseText || 'post').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').substring(0, 50);\n  const now = new Date();\n  const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');\n  const uniqueId = intelligenceId ? intelligenceId.replace(/-/g, '').slice(-6) : String(Math.floor(100000 + Math.random() * 900000));\n  return cleanSlug + '-' + dateStr + '-' + uniqueId;\n}\n\nlet blogPost;\ntry {\n  blogPost = extractJsonFromOutput(agentOutput);\n} catch (error) {\n  return { error: true, message: error.message, raw_output: agentOutput?.substring(0, 500) };\n}\n\nconst uniqueSlug = generateUniqueSlug(blogPost.slug || blogPost.title, intelligenceData.intelligence_id || intelligenceData.id);\nconst now = new Date().toISOString();\n\nconst content_post = {\n  intelligence_id: intelligenceData.intelligence_id || intelligenceData.id,\n  tier: intelligenceData.tier || 'TIER_2',\n  title: blogPost.title,\n  slug: uniqueSlug,\n  excerpt: blogPost.excerpt,\n  content_html: blogPost.content_html,\n  content_markdown: blogPost.content_markdown || '',\n  word_count: parseInt(blogPost.word_count) || 0,\n  reading_time_minutes: parseInt(blogPost.reading_time_minutes) || Math.ceil((parseInt(blogPost.word_count) || 0) / 200),\n  post_type: 'archive',\n  original_source: intelligenceData.source || 'Market Intelligence',\n  original_date: intelligenceData.created_at || None,\n  created_at: now,\n  updated_at: now\n};\n\nconst content_metadata = {\n  meta_title: blogPost.meta_title || blogPost.title,\n  meta_description: blogPost.meta_description || blogPost.excerpt,\n  categories: blogPost.categories || [],\n  tags: blogPost.tags || [],\n  structured_data: blogPost.structured_data || {}\n};\n\nreturn { content_post, content_metadata, rag_sources: blogPost.rag_sources_used || [] };"
+      }
+    },
+    {
+      "id": "insert-posts",
+      "name": "INSERT POSTS",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        -96
+      ],
+      "parameters": {
+        "tableId": "02_cnt_posts",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "intelligence_id",
+              "fieldValue": "={{ $json.content_post.intelligence_id }}"
+            },
+            {
+              "fieldId": "tier",
+              "fieldValue": "={{ $json.content_post.tier }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.content_post.title }}"
+            },
+            {
+              "fieldId": "slug",
+              "fieldValue": "={{ $json.content_post.slug }}"
+            },
+            {
+              "fieldId": "excerpt",
+              "fieldValue": "={{ $json.content_post.excerpt }}"
+            },
+            {
+              "fieldId": "content_html",
+              "fieldValue": "={{ $json.content_post.content_html }}"
+            },
+            {
+              "fieldId": "content_markdown",
+              "fieldValue": "={{ $json.content_post.content_markdown }}"
+            },
+            {
+              "fieldId": "word_count",
+              "fieldValue": "={{ $json.content_post.word_count }}"
+            },
+            {
+              "fieldId": "reading_time_minutes",
+              "fieldValue": "={{ $json.content_post.reading_time_minutes }}"
+            },
+            {
+              "fieldId": "post_type",
+              "fieldValue": "={{ $json.content_post.post_type }}"
+            },
+            {
+              "fieldId": "original_source",
+              "fieldValue": "={{ $json.content_post.original_source }}"
+            },
+            {
+              "fieldId": "original_date",
+              "fieldValue": "={{ $json.content_post.original_date }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      },
+      "onError": "stopWorkflow"
+    },
+    {
+      "id": "insert-metadata",
+      "name": "INSERT METADATA",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        -96
+      ],
+      "parameters": {
+        "tableId": "02_cnt_metadata",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "post_id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldId": "meta_title",
+              "fieldValue": "={{ $('Process AI Output').item.json.content_metadata.meta_title }}"
+            },
+            {
+              "fieldId": "meta_description",
+              "fieldValue": "={{ $('Process AI Output').item.json.content_metadata.meta_description }}"
+            },
+            {
+              "fieldId": "categories",
+              "fieldValue": "={{ $('Process AI Output').item.json.content_metadata.categories }}"
+            },
+            {
+              "fieldId": "tags",
+              "fieldValue": "={{ $('Process AI Output').item.json.content_metadata.tags }}"
+            },
+            {
+              "fieldId": "structured_data",
+              "fieldValue": "={{ $('Process AI Output').item.json.content_metadata.structured_data }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      },
+      "onError": "stopWorkflow"
+    },
+    {
+      "id": "insert-workflow",
+      "name": "INSERT WORKFLOW",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1616,
+        -96
+      ],
+      "parameters": {
+        "tableId": "02_cnt_workflow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "post_id",
+              "fieldValue": "={{ $('INSERT POSTS').item.json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "draft"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      },
+      "onError": "stopWorkflow"
+    },
+    {
+      "id": "mark-processed",
+      "name": "MARK PROCESSED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        -96
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "01_ing_market_intelligence",
+        "matchType": "allFilters",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "blog_processed",
+              "fieldValue": "true"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Prepare Data').item.json.intelligence_id }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Date & Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Date & Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "main": [
+        [
+          {
+            "node": "Get News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get News": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Prepare Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data": {
+      "main": [
+        [
+          {
+            "node": "RAG_1 EMBEDDING",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_1 EMBEDDING": {
+      "main": [
+        [
+          {
+            "node": "RAG_2 CHECK DUPLICATE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_2 CHECK DUPLICATE": {
+      "main": [
+        [
+          {
+            "node": "RAG_3 IS DUPLICATE?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_3 IS DUPLICATE?": {
+      "main": [
+        [
+          {
+            "node": "RAG_4 HYBRID SEARCH",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "STOP DUPLICATE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_4 HYBRID SEARCH": {
+      "main": [
+        [
+          {
+            "node": "RAG_5 GET PRICES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_5 GET PRICES": {
+      "main": [
+        [
+          {
+            "node": "RAG_6 GET GLOSSARY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_6 GET GLOSSARY": {
+      "main": [
+        [
+          {
+            "node": "RAG_7 BUILD CONTEXT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_7 BUILD CONTEXT": {
+      "main": [
+        [
+          {
+            "node": "Archiver RAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "STOP DUPLICATE": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Archiver RAG",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "Archiver RAG",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archiver RAG": {
+      "main": [
+        [
+          {
+            "node": "Process AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process AI Output": {
+      "main": [
+        [
+          {
+            "node": "INSERT POSTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INSERT POSTS": {
+      "main": [
+        [
+          {
+            "node": "INSERT METADATA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INSERT METADATA": {
+      "main": [
+        [
+          {
+            "node": "INSERT WORKFLOW",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INSERT WORKFLOW": {
+      "main": [
+        [
+          {
+            "node": "MARK PROCESSED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MARK PROCESSED": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

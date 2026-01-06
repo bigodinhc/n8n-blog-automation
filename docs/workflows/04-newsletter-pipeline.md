@@ -8,7 +8,7 @@ Pipeline de geracao e envio de newsletter diaria.
 WF8 Newsletter Generator → WF8.1 Newsletter Callback
          │                          │
     Coleta paralela            Aprovar/Enviar
-    AI + Imagem                Gmail/WhatsApp
+    AI + Imagem                SendGrid/WhatsApp
     Telegram Preview
 ```
 
@@ -121,7 +121,7 @@ TRIGGER TELEGRAM → PROCESSAR CALLBACK → EH NEWSLETTER?
 APROVAR CONTEUDO  VER IMAGEM   APROVAR IMAGEM  ENVIAR TODOS  CANCELAR
       │               │               │           │               │
       ▼               ▼               ▼           ▼               ▼
-UPDATE CONTENT   SEND PREVIEW  UPDATE IMAGE   ENVIAR GMAIL  UPDATE CANCELLED
+UPDATE CONTENT   SEND PREVIEW  UPDATE IMAGE   ENVIAR SENDGRID  UPDATE CANCELLED
       │                              │           │               │
       ▼                              ▼           ▼               ▼
 SEND MSG          ...          SEND MSG    UPDATE SENT      SEND MSG
@@ -138,16 +138,23 @@ SEND MSG          ...          SEND MSG    UPDATE SENT      SEND MSG
 - `nl_cancel` → Cancelar newsletter
 
 **Canais de envio:**
-- Gmail: Ativo
+- SendGrid: Ativo (migrado de Gmail em 2026-01-05)
 - WhatsApp via UaZapi: Desabilitado (nodes disabled)
 
-**Tabelas afetadas:** `newsletter_history`, `newsletter_sessions`
+**Tabelas afetadas:** `05_news_history`, `05_news_sessions`
+
+**Bot Telegram:** MT_Newsletter_bot
+
+**Correcoes 2026-01-05:**
+- Nodes Supabase corrigidos (filterType string ao inves de manual)
+- Expressoes corrigidas para referenciar nodes corretos
+- Node Telegram nativo para envio de mensagens finais
 
 ## Tabelas do Banco
 
-### newsletter_history
+### 05_news_history
 ```sql
-CREATE TABLE newsletter_history (
+CREATE TABLE 05_news_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   subject VARCHAR(200) NOT NULL,
   content_html TEXT NOT NULL,
@@ -166,12 +173,12 @@ CREATE TABLE newsletter_history (
 );
 ```
 
-### newsletter_sessions
+### 05_news_sessions
 ```sql
-CREATE TABLE newsletter_sessions (
+CREATE TABLE 05_news_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id VARCHAR(50) UNIQUE NOT NULL,
-  newsletter_id UUID REFERENCES newsletter_history(id),
+  newsletter_id UUID REFERENCES 05_news_history(id),
   chat_id VARCHAR(50) NOT NULL,
   message_id INTEGER,
   stage VARCHAR(20) DEFAULT 'pending_content',
@@ -190,5 +197,5 @@ CREATE TABLE newsletter_sessions (
 - **OpenAI GPT-4.1-mini**: Prompt de imagem
 - **Google Gemini**: Geracao de imagem
 - **Perplexity**: Pesquisa de mercado
-- **Gmail**: Envio de emails
+- **SendGrid**: Envio de emails (migrado de Gmail em 2026-01-05)
 - **Telegram Bot**: BlogDraftsBot

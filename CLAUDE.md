@@ -57,11 +57,59 @@ Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]
 - [x] WF007: Corrigido AI TWITTER - adicionado `=` no campo text para avaliar expressoes
 - [x] Fluxo SEO testado e funcionando end-to-end
 
-### PROXIMOS PASSOS (ROADMAP FASE 0)
-1. ~~**Testar fluxo SEO completo**: Aprovar draft e verificar publicacao~~ CONCLUIDO
+**Sessao 2026-01-05 (Newsletter Pipeline Fixes):**
+- [x] WF008: Corrigido `ATUALIZAR MESSAGE ID` - bug do Supabase filterType manual
+- [x] WF008: Corrigidas expressoes para referenciar nodes corretos (`$('CRIAR SESSAO')`)
+- [x] WF008a: Corrigido `ATUALIZAR NEWSLETTER ENVIADA` - usando filterType string
+- [x] WF008a: Substituido HTTP Request por node Telegram nativo (autenticacao)
+- [x] SendGrid integrado e funcionando para envio de newsletters
+- [x] Pipeline de newsletter testado end-to-end
+
+**Sessao 2026-01-05 (RAG Architecture v3):**
+- [x] Criado `docs/RAG_ARCHITECTURE_v3.md` - Arquitetura consolidada
+- [x] Arquivado `docs/RAG_DESIGN.md` → `docs/archive/RAG_DESIGN_v2.md`
+- [x] Arquivado `docs/RAG_IMPROVEMENTS.md` → `docs/archive/RAG_IMPROVEMENTS_v1.md`
+- [x] Definida estrategia dual: Hybrid (80%) + Agent Premium (20%)
+- [x] Tabelas RAG criadas: `09_rag_knowledge_chunks`, `09_rag_record_manager`, `09_rag_glossary`
+- [x] Funcoes RPC criadas: `hybrid_search()`, `check_duplication()`, `get_price_context()`, `expand_context()`
+- [x] WF011_rag_indexer criado (ID: `rrQyiqg2BwQlm49m`)
+- [x] WF002_DEV_rag_generator v3 criado (ID: `kdQxLxtbBRuC7CFV`)
+- [x] 4 Sub-workflow tools criados (retrieve_knowledge, check_duplicates, get_price_data, get_glossary)
+
+**Sessao 2026-01-06 (Chatbot v1 - Sub-workflows):**
+- [x] WF_CHAT_commodities_analyst v1 criado com sub-workflows
+- [x] 4 Sub-workflow tools criados (retrieve_knowledge, check_duplicates, get_price_data, get_glossary)
+
+**Sessao 2026-01-06 (Chatbot v2 - Arquitetura Simplificada):**
+- [x] **DECISAO:** Usar Supabase Tools nativos ao inves de sub-workflows
+- [x] Deletados 5 workflows antigos (chatbot v1 + 4 sub-workflows)
+- [x] WF_CHAT_commodities_analyst v2 criado (ID: `JJYtAYlioXcvnWyL`)
+- [x] 5 Supabase Tools nativos conectados ao AI Agent:
+  - TOOL Precos Minerio (07_mkt_iron_ore_prices) - filtro ultimos 30 dias
+  - TOOL Indices Baltic (07_mkt_baltic_indices)
+  - TOOL Rotas Baltic (07_mkt_baltic_routes)
+  - TOOL Glossario (09_rag_glossary)
+  - TOOL Noticias (01_ing_market_intelligence)
+- [x] Corrigido filtro de data: `assessed_date` (era `price_date` - campo errado)
+- [x] Chatbot testado e funcionando via Telegram
+
+### PROXIMOS PASSOS (ROADMAP)
+
+**Fase 0 - Infraestrutura:**
+1. ~~**Testar fluxo SEO completo**~~ CONCLUIDO
 2. **Instalar Rank Math** no WordPress
 3. **Implementar idempotencia**: run_id antes de publicar
 4. **DB Hygiene**: Configurar retencao de execucoes
+
+**Fase 1 - Qualidade de Conteudo:**
+1. **Melhorar prompt LinkedIn** (WF007) - nota atual: 2/10
+2. **Melhorar prompt Instagram** (WF007) - nota atual: 2/10
+3. **Melhorar prompt Newsletter** (WF008) - nota atual: 3/10
+
+**Fase 2 - RAG & Chatbot (FUTURO):**
+1. Indexar artigos publicados no vector store (WF011)
+2. Adicionar busca semantica ao chatbot
+3. Implementar WF002_DEV v3 (geracao hibrida com RAG)
 
 ### Tarefas Pendentes (Qualidade)
 | Prioridade | Tarefa | Nota |
@@ -145,6 +193,9 @@ n8n-blog-automation/
 | WF008_newsletter_generator | gMknz5KYcdJuu1Eg | Ativo | Gera newsletter |
 | WF008a_newsletter_send_callback | e88ZJNv0ffG8nILx | Ativo | Processa envio |
 | WF010_baltic_email_ingestion | 4kThouFXX7FP9XnX | Ativo | Coleta indices Baltic Exchange |
+| WF011_rag_indexer | rrQyiqg2BwQlm49m | Ativo | Indexa posts no vector store |
+| WF002_DEV_rag_generator | kdQxLxtbBRuC7CFV | Inativo | RAG v3 - Geracao hibrida (DEV) |
+| WF_CHAT_commodities_analyst | JJYtAYlioXcvnWyL | Ativo | Chatbot Telegram (5 Supabase Tools) |
 
 ## Banco de Dados (Supabase)
 
@@ -185,6 +236,9 @@ n8n-blog-automation/
 | `07_mkt_baltic_indices` | Indices Baltic Exchange (BDI, Capesize, etc.) |
 | `07_mkt_baltic_routes` | Rotas detalhadas Baltic (C2, C3, C5, C7, C8, etc.) |
 | `08_sys_errors` | Erros do sistema (WF000) |
+| `09_rag_knowledge_chunks` | Chunks com embeddings (pgvector 1536 dims) |
+| `09_rag_record_manager` | Controle de versionamento/dedup RAG |
+| `09_rag_glossary` | 26 termos tecnicos do mercado |
 
 **View:** `vw_blog_drafts` - Join de posts + metadata + workflow
 
@@ -192,10 +246,11 @@ n8n-blog-automation/
 
 | Bot | Chat ID | Uso |
 |-----|---------|-----|
-| BlogDraftsBot | 8375309778 | WF3, WF4, WF4.5, WF5, WF8 |
+| BlogDraftsBot | 8375309778 | WF3, WF4, WF4.5, WF5 |
 | QuickEditBot | 8375309778 | WF4.7 |
 | SocialMediaBot | 8375309778 | WF7, WF7.1, WF7.2 |
 | MT_SEO_bot | 8375309778 | WF005a, WF005b (aprovacao SEO) |
+| MT_Newsletter_bot | 8375309778 | WF008, WF008a (newsletter) |
 
 ### Formato de Callback Data
 **IMPORTANTE**: Telegram limita callback_data a 64 bytes!
@@ -214,8 +269,9 @@ Ver `prompts/README.md` para analise completa.
 | Prompt | Nota | Status |
 |--------|------|--------|
 | Editor (WF5) | 9/10 | MODELO A SEGUIR |
+| Baltic Extractor (WF10) | 9/10 | Novo, excelente |
+| Twitter (WF7) | 8/10 | Atualizado 2026-01-05 (hashtags dinamicas) |
 | Archiver (WF2) | 7/10 | Atualizado 2026-01-04 |
-| Twitter (WF7) | 7/10 | Bom |
 | Newsletter (WF8) | 3/10 | Precisa melhoria |
 | LinkedIn (WF7) | 2/10 | CRITICO |
 | Instagram (WF7) | 2/10 | CRITICO |
@@ -256,6 +312,8 @@ mcp__n8n-mcp__n8n_update_partial_workflow id="ID" operations=[...]
 7. **Roadmap:** Ver `improvements/ROADMAP_FINAL.md` para proximos passos
 8. **Baltic Exchange:** Ver `baltic/README.md` para documentacao do modulo de frete maritimo
 9. **Expressoes n8n:** Campos com `{{ $json.xxx }}` DEVEM comecar com `=` para serem avaliados
+10. **Chatbot:** Usar Supabase Tools nativos ao inves de sub-workflows (mais simples, mesma funcionalidade)
+11. **Supabase Tools em AI Agent:** Filtros sao estaticos, nao dinamicos. Use expressoes como `$now.minus({days: 30})`
 
 ## Troubleshooting Comum
 
@@ -273,3 +331,36 @@ Depois: "=Crie uma thread sobre {{ $json.title }}"
 1. Verificar se workflow esta ativo
 2. Verificar se credential do bot esta correta no trigger
 3. Verificar se `queryId` esta configurado nos nodes de resposta
+
+### Supabase node gera erro "failed to parse logic tree" ou "Could not find column"
+**Causa:** Bug no Supabase node typeVersion 1 com `filterType: "manual"`
+- Gera `..` (pontos duplos) ao inves de `.eq.`
+- Nao mapeia colunas corretamente em UPDATE
+
+**Solucao:** Usar `filterType: "string"` ao inves de `filterType: "manual"`
+```json
+{
+  "operation": "update",
+  "tableId": "sua_tabela",
+  "filterType": "string",
+  "filterString": "=id=eq.{{ $json.id }}",
+  "dataToSend": "defineBelow",
+  "fieldsUi": {
+    "fieldValues": [
+      { "fieldId": "campo", "fieldValue": "={{ $json.valor }}" }
+    ]
+  }
+}
+```
+**Importante:** O filterString DEVE comecar com `=` para avaliar expressoes.
+
+### Expressoes n8n nao referenciam node correto
+**Causa:** `$json.campo` referencia o node ANTERIOR, nao um node especifico
+**Solucao:** Usar `$('NOME_DO_NODE').item.json.campo` para referenciar nodes especificos
+```javascript
+// Errado (referencia node anterior)
+$json.session_id
+
+// Correto (referencia node especifico)
+$('CRIAR SESSAO').item.json.session_id
+```

@@ -46,6 +46,18 @@
 
 **Status:** WF000_error_handler ativo
 
+### 0.2.1 Newsletter Pipeline (WF008 + WF008a) - CONCLUIDO
+
+**Status:** Pipeline de newsletter funcionando end-to-end
+
+**Correcoes aplicadas:**
+- WF008 `ATUALIZAR MESSAGE ID`: filterType string + expressoes corrigidas
+- WF008a `ATUALIZAR NEWSLETTER ENVIADA`: filterType string
+- WF008a `ENVIAR MSG FINAL`: Substituido HTTP por node Telegram nativo
+- SendGrid integrado para envio de emails
+
+**Padrao aprendido:** Supabase node typeVersion 1 tem bug no filterType "manual" - usar "string" ao inves.
+
 | Nivel | Descricao | Acao |
 |-------|-----------|------|
 | P0 | Publicou errado/duplicou | Alerta imediato |
@@ -465,6 +477,7 @@ MARCO+ 2026
 
 | Data | Versao | Mudanca |
 |------|--------|---------|
+| 2026-01-05 | 2.2 | Newsletter pipeline (WF008+WF008a) corrigido e funcionando |
 | 2026-01-05 | 2.1 | CVE patch e Error Handler marcados como concluidos |
 | 2026-01-05 | 2.0 | Unificacao v1 + v2, prioridades corrigidas |
 | 2026-01-05 | 1.0 | Roadmap inicial (v1) |

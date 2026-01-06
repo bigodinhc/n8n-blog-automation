@@ -71,10 +71,12 @@ Formula: + Impacto direto + players locais
 - SEM LINK neste tweet
 
 **TWEET 4 - CTA (max 250 chars)**
-Formula: + Teaser curto + URL + 5 hashtags
+Formula: + Teaser curto + URL + 2 hashtags (dinâmicas)
 - Crie urgencia sutil
 - INCLUA a URL do artigo
-- Hashtags: #IronOre #Commodities #Vale #China #Mining
+- Use as hashtags do SEO (twitter_hashtags) se disponíveis
+- Senão, use: #MinerioDeFerro + uma específica do artigo
+- MAXIMO 2 hashtags (melhores práticas 2025)
 
 REGRAS CRITICAS
 - Emojis estrategicos no inicio
@@ -99,13 +101,19 @@ REGRAS CRITICAS
 
 ## Nota de Qualidade
 
-**Nota:** 7/10
+**Nota:** 8/10 (Atualizado 2026-01-05)
 
 **Pontos Fortes:**
 - Persona bem definida (Bloomberg Commodities Brasil)
 - Exemplos de hooks
 - Estrutura clara dos 4 tweets
 - Regras especificas
+- Hashtags dinâmicas do SEO (max 2 - melhores práticas 2025)
+
+**Melhorias Aplicadas (2026-01-05):**
+- Reduzido de 5 para 2 hashtags
+- Hashtags agora vêm do fluxo SEO (twitter_hashtags)
+- Regra de posicionamento: meio do tweet, não final
 
 **Pontos a Melhorar:**
 - Adicionar exemplos completos de OUTPUT (thread real)

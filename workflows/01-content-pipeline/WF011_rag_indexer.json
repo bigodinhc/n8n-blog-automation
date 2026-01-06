@@ -1,0 +1,268 @@
+{
+  "name": "WF011_rag_indexer",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "WEBHOOK TRIGGER",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rag-index",
+        "responseMode": "responseNode",
+        "options": {"noResponseBody": false}
+      },
+      "webhookId": "rag-index-webhook",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "switch-type",
+      "name": "DETERMINAR TIPO",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [450, 300],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+                "conditions": [{"leftValue": "={{ $json.type }}", "rightValue": "post", "operator": {"type": "string", "operation": "equals"}}]
+              },
+              "outputKey": "post"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+                "conditions": [{"leftValue": "={{ $json.type }}", "rightValue": "batch", "operator": {"type": "string", "operation": "equals"}}]
+              },
+              "outputKey": "batch"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fetch-post",
+      "name": "BUSCAR POST",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 200],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "02_cnt_posts",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "string",
+        "filterString": "=id=eq.{{ $json.post_id }}"
+      },
+      "credentials": {"supabaseApi": {"id": "04rdCJqTixOtwak5", "name": "blogging"}}
+    },
+    {
+      "id": "fetch-batch",
+      "name": "BUSCAR BATCH",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 400],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "02_cnt_posts",
+        "returnAll": false,
+        "limit": 10,
+        "filterType": "string",
+        "filterString": "status=eq.published"
+      },
+      "credentials": {"supabaseApi": {"id": "04rdCJqTixOtwak5", "name": "blogging"}}
+    },
+    {
+      "id": "merge-posts",
+      "name": "MERGE POSTS",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [850, 300],
+      "parameters": {"mode": "append"}
+    },
+    {
+      "id": "loop-posts",
+      "name": "LOOP POSTS",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1050, 300],
+      "parameters": {"batchSize": 1, "options": {}}
+    },
+    {
+      "id": "check-hash",
+      "name": "CHECK HASH",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300],
+      "parameters": {
+        "jsCode": "// Calcula hash SHA256 do conteudo\nconst crypto = require('crypto');\nconst post = $input.first().json;\n\nconst content = (post.content_html || post.content || '') + (post.title || '');\nconst contentHash = crypto.createHash('sha256').update(content).digest('hex');\n\nreturn [{\n  json: {\n    ...post,\n    content_hash: contentHash\n  }\n}];"
+      }
+    },
+    {
+      "id": "check-update",
+      "name": "VERIFICAR ATUALIZAÇÃO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1450, 300],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "09_rag_record_manager",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "string",
+        "filterString": "=doc_id=eq.{{ $json.id }}"
+      },
+      "credentials": {"supabaseApi": {"id": "04rdCJqTixOtwak5", "name": "blogging"}}
+    },
+    {
+      "id": "if-needs-update",
+      "name": "PRECISA INDEXAR?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1650, 300],
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [{"id": "check-new", "leftValue": "={{ $('VERIFICAR ATUALIZAÇÃO').item.json.length || 0 }}", "rightValue": 0, "operator": {"type": "number", "operation": "equals"}}],
+          "combinator": "or"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      }
+    },
+    {
+      "id": "smart-chunker",
+      "name": "SMART CHUNKER",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 200],
+      "parameters": {
+        "jsCode": "// Smart Markdown Chunker - Respeita hierarquia do documento\n\nconst CONFIG = {\n  MIN_CHUNK_SIZE: 400,\n  TARGET_CHUNK_SIZE: 600,\n  MAX_CHUNK_SIZE: 800,\n  MAX_HEADING_LENGTH: 200,\n  CHARS_PER_TOKEN: 4\n};\n\nclass HierarchyNode {\n  constructor(title, level) {\n    this.title = title;\n    this.level = level;\n  }\n}\n\nclass SmartMarkdownChunker {\n  constructor(config) {\n    this.config = config;\n    this.chunks = [];\n    this.hierarchyStack = [];\n  }\n\n  detectHeading(line) {\n    const match = line.match(/^(#{1,6})\\\\s+(.+)$/);\n    if (match) {\n      return {\n        level: match[1].length,\n        title: match[2].trim().substring(0, this.config.MAX_HEADING_LENGTH)\n      };\n    }\n    return null;\n  }\n\n  updateHierarchy(level, title) {\n    while (this.hierarchyStack.length > 0 &&\n           this.hierarchyStack[this.hierarchyStack.length - 1].level >= level) {\n      this.hierarchyStack.pop();\n    }\n    this.hierarchyStack.push(new HierarchyNode(title, level));\n  }\n\n  getHierarchyPath() {\n    return this.hierarchyStack.map(n => n.title).join(' > ');\n  }\n\n  estimateTokens(text) {\n    return Math.ceil(text.length / this.config.CHARS_PER_TOKEN);\n  }\n\n  chunk(markdown, metadata = {}) {\n    const lines = markdown.split('\\\\n');\n    let currentChunk = { content: '', tokens: 0, headings: [] };\n\n    this.chunks = [];\n    this.hierarchyStack = [];\n    let chunkIndex = 0;\n\n    const saveChunk = () => {\n      if (currentChunk.content.trim()) {\n        this.chunks.push({\n          chunk_index: chunkIndex++,\n          chunk_text: currentChunk.content.trim(),\n          chunk_tokens: currentChunk.tokens,\n          hierarchy_path: this.getHierarchyPath(),\n          headings_in_chunk: currentChunk.headings,\n          metadata: {\n            ...metadata,\n            hierarchy_stack: JSON.parse(JSON.stringify(this.hierarchyStack)),\n            chunk_position: this.chunks.length === 0 ? 'start' : 'middle'\n          }\n        });\n      }\n      currentChunk = { content: '', tokens: 0, headings: [] };\n    };\n\n    for (const line of lines) {\n      const heading = this.detectHeading(line);\n      const lineTokens = this.estimateTokens(line);\n\n      if (heading) {\n        if (currentChunk.tokens >= this.config.TARGET_CHUNK_SIZE) {\n          saveChunk();\n        }\n        this.updateHierarchy(heading.level, heading.title);\n        currentChunk.headings.push({\n          level: heading.level,\n          title: heading.title,\n          path: this.getHierarchyPath()\n        });\n      }\n\n      currentChunk.content += (currentChunk.content ? '\\\\n' : '') + line;\n      currentChunk.tokens += lineTokens;\n\n      if (currentChunk.tokens >= this.config.MAX_CHUNK_SIZE) {\n        saveChunk();\n      }\n    }\n\n    saveChunk();\n\n    if (this.chunks.length > 0) {\n      this.chunks[this.chunks.length - 1].metadata.chunk_position = 'end';\n    }\n\n    this.addRanges();\n    return this.chunks;\n  }\n\n  addRanges() {\n    const totalChunks = this.chunks.length;\n    for (let i = 0; i < totalChunks; i++) {\n      const chunk = this.chunks[i];\n      const currentPath = chunk.hierarchy_path;\n      let sectionStart = i;\n      let sectionEnd = i;\n      const rootSection = currentPath.split(' > ')[0];\n\n      for (let j = i - 1; j >= 0; j--) {\n        if (this.chunks[j].hierarchy_path.startsWith(rootSection)) {\n          sectionStart = j;\n        } else {\n          break;\n        }\n      }\n\n      for (let j = i + 1; j < totalChunks; j++) {\n        if (this.chunks[j].hierarchy_path.startsWith(rootSection)) {\n          sectionEnd = j;\n        } else {\n          break;\n        }\n      }\n\n      chunk.section_range = [sectionStart, sectionEnd];\n      chunk.parent_range = [0, totalChunks - 1];\n    }\n  }\n}\n\n// === Processamento ===\nconst post = $('CHECK HASH').first().json;\n\n// Remove HTML e limpa texto\nconst cleanText = (post.content_html || post.content || '')\n  .replace(/<[^>]+>/g, '')\n  .replace(/&nbsp;/g, ' ')\n  .replace(/&amp;/g, '&')\n  .replace(/&lt;/g, '<')\n  .replace(/&gt;/g, '>')\n  .trim();\n\nconst metadata = {\n  doc_id: post.id,\n  doc_name: post.title,\n  source_type: 'post',\n  tier: post.tier,\n  created_at: post.created_at,\n  content_hash: post.content_hash\n};\n\nconst chunker = new SmartMarkdownChunker(CONFIG);\nconst chunks = chunker.chunk(cleanText, metadata);\n\nreturn chunks.map(chunk => ({ json: { ...chunk, post_id: post.id } }));"
+      }
+    },
+    {
+      "id": "batch-chunks",
+      "name": "BATCH CHUNKS",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [2050, 200],
+      "parameters": {"batchSize": 20, "options": {}}
+    },
+    {
+      "id": "prepare-embeddings",
+      "name": "PREPARAR EMBEDDINGS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2250, 200],
+      "parameters": {
+        "jsCode": "// Prepara array de textos para batch embedding\nconst items = $input.all();\nconst texts = items.map(item => item.json.chunk_text);\n\nreturn [{\n  json: {\n    texts: texts,\n    items: items.map(i => i.json)\n  }\n}];"
+      }
+    },
+    {
+      "id": "openai-embeddings",
+      "name": "OPENAI EMBEDDINGS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2450, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"text-embedding-3-small\",\n  \"input\": {{ JSON.stringify($json.texts) }}\n}",
+        "options": {"timeout": 60000}
+      },
+      "credentials": {"openAiApi": {"id": "JqKcQwXZ4o66Bxdl", "name": "OpenAI"}}
+    },
+    {
+      "id": "combine-embeddings",
+      "name": "COMBINAR EMBEDDINGS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2650, 200],
+      "parameters": {
+        "jsCode": "// Combina chunks com seus embeddings\nconst response = $json;\nconst preparedData = $('PREPARAR EMBEDDINGS').first().json;\n\nconst embeddings = response.data;\nconst items = preparedData.items;\n\nconst results = items.map((item, i) => ({\n  json: {\n    source_type: item.metadata.source_type,\n    source_id: item.metadata.doc_id,\n    chunk_index: item.chunk_index,\n    chunk_text: item.chunk_text,\n    chunk_tokens: item.chunk_tokens,\n    embedding: embeddings[i].embedding,\n    hierarchy_path: item.hierarchy_path,\n    section_range: item.section_range,\n    parent_range: item.parent_range,\n    headings_in_chunk: item.headings_in_chunk,\n    metadata: item.metadata,\n    content_hash: item.metadata.content_hash,\n    is_active: true\n  }\n}));\n\nreturn results;"
+      }
+    },
+    {
+      "id": "upsert-chunks",
+      "name": "UPSERT CHUNKS",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2850, 200],
+      "parameters": {"operation": "create", "tableId": "09_rag_knowledge_chunks"},
+      "credentials": {"supabaseApi": {"id": "04rdCJqTixOtwak5", "name": "blogging"}}
+    },
+    {
+      "id": "update-record-manager",
+      "name": "ATUALIZAR RECORD MANAGER",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3250, 100],
+      "parameters": {"operation": "create", "tableId": "09_rag_record_manager"},
+      "credentials": {"supabaseApi": {"id": "04rdCJqTixOtwak5", "name": "blogging"}}
+    },
+    {
+      "id": "prepare-record",
+      "name": "PREPARAR RECORD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3050, 100],
+      "parameters": {
+        "jsCode": "// Prepara dados para o record manager\nconst firstChunk = $('COMBINAR EMBEDDINGS').first().json;\nconst allChunks = $('COMBINAR EMBEDDINGS').all();\n\nreturn [{\n  json: {\n    doc_id: firstChunk.source_id,\n    doc_name: firstChunk.metadata.doc_name,\n    source_type: firstChunk.source_type,\n    content_hash: firstChunk.content_hash,\n    version: 1,\n    chunk_count: allChunks.length,\n    status: 'complete',\n    indexed_at: new Date().toISOString()\n  }\n}];"
+      }
+    },
+    {
+      "id": "respond-success",
+      "name": "RESPOND SUCCESS",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3650, 200],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'success', message: 'Indexação concluída', timestamp: new Date().toISOString() } }}"
+      }
+    },
+    {
+      "id": "skip-node",
+      "name": "JÁ INDEXADO",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1850, 400],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "WEBHOOK TRIGGER": {"main": [[{"node": "DETERMINAR TIPO", "type": "main", "index": 0}]]},
+    "DETERMINAR TIPO": {"main": [[{"node": "BUSCAR POST", "type": "main", "index": 0}], [{"node": "BUSCAR BATCH", "type": "main", "index": 0}]]},
+    "BUSCAR POST": {"main": [[{"node": "MERGE POSTS", "type": "main", "index": 0}]]},
+    "BUSCAR BATCH": {"main": [[{"node": "MERGE POSTS", "type": "main", "index": 1}]]},
+    "MERGE POSTS": {"main": [[{"node": "LOOP POSTS", "type": "main", "index": 0}]]},
+    "CHECK HASH": {"main": [[{"node": "VERIFICAR ATUALIZAÇÃO", "type": "main", "index": 0}]]},
+    "VERIFICAR ATUALIZAÇÃO": {"main": [[{"node": "PRECISA INDEXAR?", "type": "main", "index": 0}]]},
+    "PRECISA INDEXAR?": {"main": [[{"node": "SMART CHUNKER", "type": "main", "index": 0}], [{"node": "JÁ INDEXADO", "type": "main", "index": 0}]]},
+    "SMART CHUNKER": {"main": [[{"node": "BATCH CHUNKS", "type": "main", "index": 0}]]},
+    "PREPARAR EMBEDDINGS": {"main": [[{"node": "OPENAI EMBEDDINGS", "type": "main", "index": 0}]]},
+    "OPENAI EMBEDDINGS": {"main": [[{"node": "COMBINAR EMBEDDINGS", "type": "main", "index": 0}]]},
+    "COMBINAR EMBEDDINGS": {"main": [[{"node": "UPSERT CHUNKS", "type": "main", "index": 0}]]},
+    "PREPARAR RECORD": {"main": [[{"node": "ATUALIZAR RECORD MANAGER", "type": "main", "index": 0}]]},
+    "LOOP POSTS": {"main": [[{"node": "RESPOND SUCCESS", "type": "main", "index": 0}], [{"node": "CHECK HASH", "type": "main", "index": 0}]]},
+    "BATCH CHUNKS": {"main": [[{"node": "PREPARAR RECORD", "type": "main", "index": 0}], [{"node": "PREPARAR EMBEDDINGS", "type": "main", "index": 0}]]},
+    "ATUALIZAR RECORD MANAGER": {"main": [[{"node": "LOOP POSTS", "type": "main", "index": 0}]]},
+    "JÁ INDEXADO": {"main": [[{"node": "LOOP POSTS", "type": "main", "index": 0}]]},
+    "UPSERT CHUNKS": {"main": [[{"node": "BATCH CHUNKS", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}
