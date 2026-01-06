@@ -93,6 +93,39 @@ Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]
 - [x] Corrigido filtro de data: `assessed_date` (era `price_date` - campo errado)
 - [x] Chatbot testado e funcionando via Telegram
 
+**Sessao 2026-01-06 (Newsletter Prompt Improvement):**
+- [x] WF008: Prompt reescrito com few-shot examples (2 cenarios)
+- [x] WF008: Integrado Baltic indices como 4a fonte de dados
+- [x] WF008: Estrutura de 5 secoes obrigatorias definida
+- [x] WF008: Regras de estilo claras (tom, numeros, moeda, unidades)
+- [x] prompts/newsletter.md: Atualizado de 3/10 para 9/10
+
+**Sessao 2026-01-06 (Social Media Priority):**
+- [x] ROADMAP: Retry, DB Hygiene, Prometheus movidos para meta futura
+- [x] WF007 AI LINKEDIN: Prompt reescrito (2/10 -> 9/10) com 3 few-shot examples
+- [x] WF007 AI INSTAGRAM: Prompt reescrito (2/10 -> 9/10) com 4 few-shot examples
+- [x] prompts/linkedin.md: Atualizado com novo prompt
+- [x] prompts/instagram.md: Atualizado com novo prompt
+- [ ] **PENDENTE:** Configurar credenciais LinkedIn (https://www.linkedin.com/developers/)
+- [ ] **PENDENTE:** Configurar credenciais Instagram (Facebook App + Instagram Graph API)
+- [ ] Testar postagens em ambas as redes
+
+**Sessao 2026-01-06 (Sistema de Alertas Melhorado):**
+- [x] WF009: Corrigido bug da tabela `system_errors` → `08_sys_errors`
+- [x] WF009: Corrigido bug da tabela `content_workflow` → `02_cnt_workflow`
+- [x] Criada tabela `08_sys_alert_config` para configuracao de prioridades
+- [x] Inseridas configuracoes de prioridade para 23 workflows
+- [x] Adicionado campo `priority_level` na tabela `08_sys_errors`
+- [x] WF000: Adicionado node BUSCAR CONFIG (query config de prioridade)
+- [x] WF000: Adicionado node DETERMINAR PRIORIDADE (classifica P0-P3)
+- [x] WF000: Adicionado IF DEVE NOTIFICAR (P0/P1 notifica, P2/P3 so loga)
+- [x] WF000: Template de mensagem atualizado com nivel de prioridade
+- [x] WF009: Adicionado CALCULAR ERROR RATE (erros/hora)
+- [x] WF009: Alerta mostra erros por prioridade (P0/P1/P2/P3)
+- [x] WF012_daily_summary criado (resumo diario as 8:00 AM)
+- [x] WF012: Query de erros e posts das ultimas 24h
+- [x] WF012: Metricas de saude do sistema
+
 ### PROXIMOS PASSOS (ROADMAP)
 
 **Fase 0 - Infraestrutura:**
@@ -101,10 +134,10 @@ Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]
 3. **Implementar idempotencia**: run_id antes de publicar
 4. **DB Hygiene**: Configurar retencao de execucoes
 
-**Fase 1 - Qualidade de Conteudo:**
-1. **Melhorar prompt LinkedIn** (WF007) - nota atual: 2/10
-2. **Melhorar prompt Instagram** (WF007) - nota atual: 2/10
-3. **Melhorar prompt Newsletter** (WF008) - nota atual: 3/10
+**Fase 1 - Qualidade de Conteudo:** CONCLUIDO
+1. ~~**Melhorar prompt LinkedIn** (WF007)~~ - 9/10 CONCLUIDO
+2. ~~**Melhorar prompt Instagram** (WF007)~~ - 9/10 CONCLUIDO
+3. ~~**Melhorar prompt Newsletter** (WF008)~~ - 9/10 CONCLUIDO
 
 **Fase 2 - RAG & Chatbot (FUTURO):**
 1. Indexar artigos publicados no vector store (WF011)
@@ -114,9 +147,11 @@ Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]
 ### Tarefas Pendentes (Qualidade)
 | Prioridade | Tarefa | Nota |
 |------------|--------|------|
-| Alta | Melhorar prompt LinkedIn (WF007) | 2/10 |
-| Alta | Melhorar prompt Instagram (WF007) | 2/10 |
-| Media | Melhorar prompt Newsletter (WF008) | 3/10 |
+| ~~Alta~~ | ~~Melhorar prompt LinkedIn (WF007)~~ | ~~9/10~~ CONCLUIDO |
+| ~~Alta~~ | ~~Melhorar prompt Instagram (WF007)~~ | ~~9/10~~ CONCLUIDO |
+| ~~Media~~ | ~~Melhorar prompt Newsletter (WF008)~~ | ~~9/10~~ CONCLUIDO |
+
+**TODOS OS PROMPTS CRITICOS CONCLUIDOS!**
 
 ### Arquivos de Referencia
 - Roadmap: `improvements/ROADMAP_FINAL.md`
@@ -192,8 +227,10 @@ n8n-blog-automation/
 | WF007b_social_image_callback | t4M4Qav7y3860Bje | Ativo | Aprova imagens sociais |
 | WF008_newsletter_generator | gMknz5KYcdJuu1Eg | Ativo | Gera newsletter |
 | WF008a_newsletter_send_callback | e88ZJNv0ffG8nILx | Ativo | Processa envio |
+| WF009_alerts_proactive | OLgG9Y2iHQVujYXB | Ativo | Monitoramento proativo (2h) + error rate |
 | WF010_baltic_email_ingestion | 4kThouFXX7FP9XnX | Ativo | Coleta indices Baltic Exchange |
 | WF011_rag_indexer | rrQyiqg2BwQlm49m | Ativo | Indexa posts no vector store |
+| WF012_daily_summary | IsTbyh13W8QALHpk | Ativo | Resumo diario 8:00 AM |
 | WF002_DEV_rag_generator | kdQxLxtbBRuC7CFV | Inativo | RAG v3 - Geracao hibrida (DEV) |
 | WF_CHAT_commodities_analyst | JJYtAYlioXcvnWyL | Ativo | Chatbot Telegram (5 Supabase Tools) |
 
@@ -235,7 +272,8 @@ n8n-blog-automation/
 | `07_mkt_iron_ore_prices` | Precos Platts IODEX (~11.500 registros) |
 | `07_mkt_baltic_indices` | Indices Baltic Exchange (BDI, Capesize, etc.) |
 | `07_mkt_baltic_routes` | Rotas detalhadas Baltic (C2, C3, C5, C7, C8, etc.) |
-| `08_sys_errors` | Erros do sistema (WF000) |
+| `08_sys_errors` | Erros do sistema (WF000) com priority_level |
+| `08_sys_alert_config` | Configuracao de prioridade por workflow |
 | `09_rag_knowledge_chunks` | Chunks com embeddings (pgvector 1536 dims) |
 | `09_rag_record_manager` | Controle de versionamento/dedup RAG |
 | `09_rag_glossary` | 26 termos tecnicos do mercado |
@@ -272,9 +310,9 @@ Ver `prompts/README.md` para analise completa.
 | Baltic Extractor (WF10) | 9/10 | Novo, excelente |
 | Twitter (WF7) | 8/10 | Atualizado 2026-01-05 (hashtags dinamicas) |
 | Archiver (WF2) | 7/10 | Atualizado 2026-01-04 |
-| Newsletter (WF8) | 3/10 | Precisa melhoria |
-| LinkedIn (WF7) | 2/10 | CRITICO |
-| Instagram (WF7) | 2/10 | CRITICO |
+| Newsletter (WF8) | 9/10 | Atualizado 2026-01-06 |
+| LinkedIn (WF7) | 9/10 | Atualizado 2026-01-06 |
+| Instagram (WF7) | 9/10 | Atualizado 2026-01-06 |
 | ~~Rewriter (WF2)~~ | - | REMOVIDO 2026-01-04 |
 
 ## Comandos MCP Uteis
@@ -300,6 +338,71 @@ mcp__n8n-mcp__n8n_update_partial_workflow id="ID" operations=[...]
 - `docs/SEO_ANALYSIS.md` - Analise SEO do site
 - `docs/workflows/` - Documentacao detalhada de cada pipeline
 - `prompts/` - Prompts de AI com notas e sugestoes de melhoria
+
+## Sistema de Alertas (Implementado 2026-01-06)
+
+### Niveis de Prioridade
+
+| Nivel | Nome | Acao | Quando Usar |
+|-------|------|------|-------------|
+| **P0** | CRITICO | Alerta imediato | Publicacao falhou/duplicou, API critica down |
+| **P1** | ALTO | Alerta imediato | Workflow importante falhou |
+| **P2** | MEDIO | Apenas log | Rate limit, timeout (retry automatico) |
+| **P3** | BAIXO | Apenas log | Dados faltando, warnings menores |
+
+### Classificacao Automatica de Workflows
+
+**P0 - Criticos (publicacao):**
+- `WF006a_image_approval_publish` - Publica no WordPress
+- `WF007a_social_publish_callback` - Publica nas redes sociais
+- `WF008a_newsletter_send_callback` - Envia newsletter
+
+**P1 - Importantes (geracao):**
+- `WF001_content_feed_ingestion`
+- `WF002_content_ai_generator`
+- `WF007_social_content_factory`
+- `WF008_newsletter_generator`
+- `WF010_baltic_email_ingestion`
+
+**P2 - Normais (preview, revisao):**
+- `WF003-WF006` (preview, callbacks, revisao, imagem)
+
+**P3 - Baixos (sistema):**
+- `WF000`, `WF009`, `WF011`, `WF_CHAT`
+
+### Workflows de Alerta
+
+| Workflow | Funcao | Schedule |
+|----------|--------|----------|
+| WF000_error_handler | Captura erros, classifica P0-P3, notifica se critico | On error |
+| WF009_alerts_proactive | Monitora inatividade e error rate | A cada 2h |
+| WF012_daily_summary | Resumo diario de posts e erros | 8:00 AM |
+
+### Tabela de Configuracao
+
+A tabela `08_sys_alert_config` define a prioridade de cada workflow:
+
+```sql
+SELECT workflow_name, priority_level, is_critical
+FROM "08_sys_alert_config"
+ORDER BY priority_level;
+```
+
+Para alterar a prioridade de um workflow:
+```sql
+UPDATE "08_sys_alert_config"
+SET priority_level = 'P1', is_critical = false
+WHERE workflow_id = 'WORKFLOW_ID';
+```
+
+### Elevacao Automatica de Prioridade
+
+O sistema eleva automaticamente a prioridade em certos casos:
+- Erro DATABASE em workflow de publicacao → P0
+- Erro NETWORK em API critica (WordPress, Twitter, SendGrid) → P0
+- Error rate > 1 erro/hora → Alerta no WF009
+
+---
 
 ## Notas Importantes
 

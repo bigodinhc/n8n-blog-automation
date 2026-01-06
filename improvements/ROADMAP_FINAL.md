@@ -1,7 +1,7 @@
 # ROADMAP FINAL - Minerals Trading Daily
 
-**Data:** 2026-01-05
-**Versao:** 2.0 (Unificado v1 + v2)
+**Data:** 2026-01-06
+**Versao:** 2.6 (Sistema de Alertas P0-P3)
 **Projeto:** Blog Automation n8n
 
 ---
@@ -65,41 +65,15 @@
 | P2 | Rate limit/timeout | Retry automatico |
 | P3 | Dados faltando | Log apenas |
 
-### 0.3 Retry + Idempotencia (CRITICO)
+### ~~0.3 Retry + Idempotencia~~ - META FUTURA
 
-**Problema:** Retry sem idempotencia = duplicacao
-**Tempo:** 4 horas
+**Status:** Adiado (projeto pequeno, baixo volume)
+**Motivo:** Risco de duplicacao baixo com volume atual
 
-**Retry com backoff:**
-```javascript
-// Exponential backoff: 1s -> 2s -> 4s -> 8s
-// Retry apenas para: 429, 503, timeout
-// NAO retry para: 400, 401, 403
-```
+### ~~0.4 DB Hygiene~~ - META FUTURA
 
-**Idempotencia minima:**
-```javascript
-const runId = `publish:${postId}:${contentVersion}`;
-
-// Antes de publicar
-const existing = await db.get(runId);
-if (existing.status === 'done') return existing.result;
-
-// Executar e marcar
-await db.set(runId, { status: 'running' });
-const result = await publishToWP(post);
-await db.set(runId, { status: 'done', result });
-```
-
-### 0.4 DB Hygiene
-
-**Problema:** Execucoes acumulando, storage crescendo
-**Tempo:** 1 hora
-
-**Configurar:**
-- Retencao de execucoes (30 dias)
-- Pruning automatico
-- Limpar execucoes com payloads grandes
+**Status:** Adiado (projeto pequeno)
+**Motivo:** Storage nao e problema no momento
 
 ---
 
@@ -119,19 +93,10 @@ N8N_LOG_OUTPUT=console
 - Incluir `run_id` em todos os logs
 - Formato JSON para parsing
 
-### 1.2 Prometheus /metrics
+### ~~1.2 Prometheus /metrics~~ - META FUTURA
 
-**Tempo:** 2 horas
-
-```bash
-# Habilitar endpoint
-N8N_METRICS=true
-```
-
-**Metricas a coletar:**
-- `n8n_workflow_executions_total`
-- `n8n_workflow_execution_duration_seconds`
-- `n8n_workflow_errors_total`
+**Status:** Adiado (projeto pequeno)
+**Motivo:** Logging basico suficiente para volume atual
 
 ### 1.3 Grafana Basico
 
@@ -151,14 +116,32 @@ services:
 2. Performance: Duracao media por workflow
 3. Custos: Tokens AI por dia (se rastrear)
 
-### 1.4 Alertas Telegram
+### 1.4 Alertas Telegram - CONCLUIDO (2026-01-06)
 
-**Tempo:** 2 horas
+**Status:** Implementado com sistema de prioridades P0-P3
 
-**Configurar alertas para:**
-- Error rate > 5% em 5 min
-- Workflow critico falhou
-- API externa down (429/503)
+**O que foi feito:**
+- [x] WF000: Sistema de prioridades P0-P3 implementado
+- [x] WF000: Busca configuracao de prioridade por workflow
+- [x] WF000: P0/P1 notifica imediatamente, P2/P3 apenas loga
+- [x] WF009: Corrigido bug de tabela errada
+- [x] WF009: Adicionado calculo de error rate (erros/hora)
+- [x] WF012: Resumo diario criado (8:00 AM)
+- [x] Tabela `08_sys_alert_config` criada com 23 workflows configurados
+- [x] Campo `priority_level` adicionado em `08_sys_errors`
+
+**Niveis de alerta configurados:**
+| Nivel | Acao | Workflows |
+|-------|------|-----------|
+| P0 | Alerta imediato | WF006a, WF007a, WF008a (publicacao) |
+| P1 | Alerta imediato | WF001, WF002, WF007, WF008, WF010 |
+| P2 | Apenas log | WF003-WF006 (preview, revisao) |
+| P3 | Apenas log | WF000, WF009, WF011, WF_CHAT |
+
+**Workflows de monitoramento:**
+- `WF000_error_handler` - Captura erros, classifica, notifica
+- `WF009_alerts_proactive` - Monitoramento a cada 2h + error rate
+- `WF012_daily_summary` - Resumo diario 8:00 AM
 
 ---
 
@@ -219,23 +202,27 @@ CREATE INDEX ON knowledge_chunks
 - Risco de duplicacao alto
 - Conteudo muito curto
 
-### 2.4 Melhorar Prompts
+### 2.4 Melhorar Prompts - CONCLUIDO
 
-**Prioridade:** LinkedIn e Instagram (2/10 -> 8/10)
-**Tempo:** 4 horas
+**Newsletter:** CONCLUIDO (3/10 -> 9/10) - 2026-01-06
+- Few-shot examples com 2 cenarios (alta e queda)
+- Estrutura de 5 secoes obrigatorias
+- Regras de estilo claras
+- Integracao com Baltic indices
 
-**LinkedIn - Estrutura:**
-1. Hook (1-2 linhas): Pergunta provocadora
-2. Story (3-5 linhas): Narrativa com numeros
-3. Insights (3-5 linhas): Valor concreto
-4. CTA (1 linha): Pergunta que gera comentario
+**LinkedIn:** CONCLUIDO (2/10 -> 9/10) - 2026-01-06
+- 3 few-shot examples (queda, alta, producao)
+- Estrutura HOOK-CONTEXTO-ANALISE-INSIGHT-CTA
+- System message com persona Bloomberg Commodities
+- Publico-alvo C-level definido
 
-**Instagram - Estrutura:**
-1. Emoji Hook
-2. Headline
-3. Story/Contexto
-4. Lesson
-5. CTA + Hashtags
+**Instagram:** CONCLUIDO (2/10 -> 9/10) - 2026-01-06
+- 4 few-shot examples (queda, alta, ESG, frete)
+- Estrutura HOOK-CORPO-INSIGHT-CTA
+- Estrategia de 15 hashtags mix PT/EN
+- Mobile-first design
+
+**STATUS: TODOS OS PROMPTS CRITICOS CONCLUIDOS!**
 
 ---
 
@@ -372,23 +359,20 @@ N8N_QUEUE_DRIVER=redis
 
 ```
 JANEIRO 2026
-|---- Hoje/Esta Semana ----|
-  [P0] CVE Patch + Hardening
-  [P0] Error Handler (WF000)
-  [P0] Retry + Idempotencia
-  [P0] DB Hygiene
+|---- Hoje/Esta Semana (PRIORIDADE) ----|
+  [x] CVE Patch + Hardening - CONCLUIDO
+  [x] Error Handler (WF000) - CONCLUIDO
+  [x] Newsletter prompt (9/10) - CONCLUIDO
+  [x] Prompt LinkedIn (9/10) - CONCLUIDO
+  [x] Prompt Instagram (9/10) - CONCLUIDO
+  [!!] Credenciais LinkedIn + Instagram
+  [!!] Testar postagens sociais
 
 |---- Semanas 1-2 ----|
-  [P0] Logging estruturado
-  [P0] Prometheus /metrics
-  [P0] Alertas Telegram
-  [P1] Grafana basico
-
-|---- Semanas 2-4 ----|
+  [P1] Logging estruturado
+  [P1] Alertas Telegram
   [P1] RAG com pgvector
-  [P1] Evaluation node
-  [P1] Prompts LinkedIn/Instagram
-  [P1] Guardrails publicacao
+  [P2] Grafana basico (opcional)
 
 FEVEREIRO 2026
 |---- Semanas 4-6 ----|
@@ -411,16 +395,16 @@ MARCO+ 2026
 
 ## INVESTIMENTO
 
-### Tempo
-| Fase | Horas | Prazo |
-|------|-------|-------|
-| Fase 0 (Urgente) | 10h | Esta semana |
-| Fase 1 (Observability) | 10h | Semanas 1-2 |
-| Fase 2 (Qualidade) | 18h | Semanas 2-4 |
-| Fase 3 (Distribuicao) | 8h | Semanas 4-6 |
-| Fase 4 (Resiliencia) | 9h | Semanas 6-8 |
-| Fase 5 (Escala) | 13h | Mes 2+ |
-| **TOTAL** | **~68h** | **~8 semanas** |
+### Tempo (Atualizado)
+| Fase | Horas | Status |
+|------|-------|--------|
+| Fase 0 (Urgente) | ~~10h~~ 3h | CVE+Error CONCLUIDO, resto adiado |
+| Fase 1 (Observability) | ~~10h~~ 6h | Prometheus adiado |
+| Fase 2 (Qualidade) | 18h | Em andamento |
+| Fase 3 (Distribuicao) | 8h | Pendente |
+| Fase 4 (Resiliencia) | 9h | Meta futura |
+| Fase 5 (Escala) | 13h | Meta futura |
+| **TOTAL ATIVO** | **~35h** | **~4 semanas** |
 
 ### Custo Mensal
 | Item | Antes | Depois |
@@ -446,15 +430,16 @@ MARCO+ 2026
 - [x] Verificar versao n8n (CVE) - Atualizado
 - [x] Ativar WF000 Error Handler - Ativo
 
-### Esta Semana
-- [ ] Implementar retry + idempotencia
-- [ ] Configurar DB hygiene
-- [ ] Setup logging estruturado
+### Esta Semana (PRIORIDADE)
+- [ ] **Melhorar prompt LinkedIn (2/10 -> 8/10)**
+- [ ] **Melhorar prompt Instagram (2/10 -> 8/10)**
+- [ ] **Configurar credenciais LinkedIn e Instagram no n8n**
+- [ ] Testar postagens em ambas as redes
 
 ### Proxima Semana
-- [ ] Prometheus /metrics
-- [ ] Alertas Telegram
-- [ ] Primeiro dashboard Grafana
+- [ ] Setup logging estruturado
+- [ ] Alertas Telegram para erros criticos
+- [ ] Completar RAG com pgvector
 
 ---
 
@@ -477,6 +462,11 @@ MARCO+ 2026
 
 | Data | Versao | Mudanca |
 |------|--------|---------|
+| 2026-01-06 | 2.6 | Sistema de Alertas P0-P3 implementado, WF012 resumo diario criado |
+| 2026-01-06 | 2.6 | Prompts LinkedIn e Instagram CONCLUIDOS (2/10 -> 9/10) |
+| 2026-01-06 | 2.5 | Prioridade: LinkedIn + Instagram prompts e credenciais |
+| 2026-01-06 | 2.4 | Retry, DB Hygiene, Prometheus movidos para meta futura |
+| 2026-01-06 | 2.3 | Newsletter prompt melhorado (3/10 -> 9/10), few-shot examples |
 | 2026-01-05 | 2.2 | Newsletter pipeline (WF008+WF008a) corrigido e funcionando |
 | 2026-01-05 | 2.1 | CVE patch e Error Handler marcados como concluidos |
 | 2026-01-05 | 2.0 | Unificacao v1 + v2, prioridades corrigidas |
