@@ -1,5 +1,11 @@
 {
-  "name": "[BLOG] 8 NEWSLETTER GENERATOR",
+  "updatedAt": "2026-01-06T04:05:46.656Z",
+  "createdAt": "2025-12-18T19:29:52.902Z",
+  "id": "gMknz5KYcdJuu1Eg",
+  "name": "WF008_newsletter_generator",
+  "description": null,
+  "active": true,
+  "isArchived": false,
   "nodes": [
     {
       "parameters": {
@@ -23,22 +29,23 @@
     },
     {
       "parameters": {
-        "jsCode": "const now = new Date();\nconst yesterday = new Date(now);\nyesterday.setDate(yesterday.getDate());\nconst startOfDay = new Date(yesterday);\nstartOfDay.setHours(0, 0, 0, 0);\nconst endOfDay = new Date(yesterday);\nendOfDay.setHours(23, 59, 59, 999);\nconst brDate = yesterday.toLocaleDateString('pt-BR', {\n  timeZone: 'America/Sao_Paulo',\n  weekday: 'long',\n  day: '2-digit',\n  month: 'long',\n  year: 'numeric'\n});\nconst formattedDate = brDate.charAt(0).toUpperCase() + brDate.slice(1);\nconst sessionId = `newsletter_${Date.now()}`;\nreturn [{\n  json: {\n    session_id: sessionId,\n    date_display: formattedDate,\n    date_query: yesterday.toISOString().split('T')[0],\n    timestamp_start: startOfDay.toISOString(),\n    timestamp_end: endOfDay.toISOString(),\n    edition_subject: `📊 Minerals Trading Daily - ${formattedDate}`\n  }\n}];"
+        "jsCode": "const tz = 'America/Sao_Paulo';\nconst now = new Date();\n\n// YYYY-MM-DD no fuso de SP\nconst fmtYMD = new Intl.DateTimeFormat('en-CA', {\n  timeZone: tz,\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n});\n\nconst todaySP = fmtYMD.format(now); // ex: 2026-01-06 (em SP)\nconst d = new Date(`${todaySP}T00:00:00.000Z`);\nd.setUTCDate(d.getUTCDate() ); // ontem (em SP) como \"plain date\"\nconst date_query = d.toISOString().slice(0, 10); // YYYY-MM-DD\n\nconst [Y, M, D] = date_query.split('-').map(Number);\n\n// offset do timezone (minutos) para um instant\nfunction getTzOffsetMinutes(date, timeZone) {\n  const dtf = new Intl.DateTimeFormat('en-US', {\n    timeZone,\n    year: 'numeric', month: '2-digit', day: '2-digit',\n    hour: '2-digit', minute: '2-digit', second: '2-digit',\n    hourCycle: 'h23',\n  });\n\n  const parts = dtf.formatToParts(date);\n  const v = {};\n  for (const p of parts) if (p.type !== 'literal') v[p.type] = p.value;\n\n  const asUTC = Date.UTC(+v.year, +v.month - 1, +v.day, +v.hour, +v.minute, +v.second);\n  return (asUTC - date.getTime()) / 60000;\n}\n\n// converte \"data/hora no fuso\" -> Date UTC real\nfunction zonedToUtcDate(y, m, d, h, mi, s, ms, timeZone) {\n  const localAsUTC = Date.UTC(y, m - 1, d, h, mi, s, ms);\n  const offset = getTzOffsetMinutes(new Date(localAsUTC), timeZone);\n  return new Date(localAsUTC - offset * 60000);\n}\n\nconst startOfDay = zonedToUtcDate(Y, M, D, 0, 0, 0, 0, tz);\nconst endOfDay   = zonedToUtcDate(Y, M, D, 23, 59, 59, 999, tz);\n\n// referência no meio do dia só pra evitar “virar” o dia ao formatar\nconst displayRef = zonedToUtcDate(Y, M, D, 12, 0, 0, 0, tz);\n\nconst brDate = displayRef.toLocaleDateString('pt-BR', {\n  timeZone: tz,\n  weekday: 'long',\n  day: '2-digit',\n  month: 'long',\n  year: 'numeric',\n});\n\nconst formattedDate = brDate.charAt(0).toUpperCase() + brDate.slice(1);\nconst sessionId = `newsletter_${Date.now()}`;\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    date_display: formattedDate,\n    date_query,\n    timestamp_start: startOfDay.toISOString(),\n    timestamp_end: endOfDay.toISOString(),\n    edition_subject: `📊 Minerals Trading Daily - ${formattedDate}`,\n  }\n}];\n"
       },
       "id": "init-date",
       "name": "INIT DATA",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        224,
+        208,
         304
       ]
     },
     {
       "parameters": {
         "operation": "getAll",
-        "tableId": "content_posts",
+        "tableId": "02_cnt_posts",
         "limit": 10,
+        "matchType": "allFilters",
         "filters": {
           "conditions": [
             {
@@ -72,9 +79,9 @@
     {
       "parameters": {
         "operation": "getAll",
-        "tableId": "iron_ore_prices",
+        "tableId": "07_mkt_iron_ore_prices",
         "filterType": "string",
-        "filterString": "symbol=in.(IODBZ00,IOPRM00,IODFE00,IODMR00,IODFG00,IODFI00,IODFH00,IODAL00,IODAM00,IODSK00,IODSL00,IODSM00)&order=assessed_date.desc&limit=12"
+        "filterString": "symbol=in.(IODBZ00,IOPRM00,IODFE00,TSIAD00,TSIAI00,IOADF10,IOALE00,IOPPS10,IOPPS20,IOPPT00,IOBBA00)&order=assessed_date.desc&limit=50"
       },
       "id": "fetch-prices",
       "name": "BUSCAR PRECOS PLATTS",
@@ -127,34 +134,34 @@
     },
     {
       "parameters": {
-        "numberInputs": 3
+        "numberInputs": 4
       },
       "id": "merge-3-inputs",
       "name": "Merge",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        672,
-        288
+        720,
+        272
       ]
     },
     {
       "parameters": {
-        "jsCode": "const initData = $('INIT DATA').first().json;\nconst posts = $('BUSCAR POSTS DO DIA').all().map(item => item.json);\nconst allPrices = $('BUSCAR PRECOS PLATTS').all().map(item => item.json);\nconst perplexityResponse = $('PERPLEXITY MERCADO').first().json;\nconst marketContext = perplexityResponse.choices ? perplexityResponse.choices[0].message.content : 'Contexto de mercado nao disponivel';\nconst postsFormatted = posts.length > 0 ? posts.map((p, i) => `${i + 1}. ${p.title}\\n   Resumo: ${(p.meta_description || p.content || '').substring(0, 200)}...`).join('\\n\\n') : 'Nenhum post publicado hoje.';\nconst pricesBySymbol = {};\nallPrices.forEach(p => { if (!pricesBySymbol[p.symbol] || p.assessed_date > pricesBySymbol[p.symbol].assessed_date) { pricesBySymbol[p.symbol] = p; } });\nconst priceConfig = [\n  { symbol: 'IODBZ00', name: 'IODEX CFR China 62% Fe', category: 'benchmark' },\n  { symbol: 'IOPRM00', name: 'IO Fines Fe 65%', category: 'benchmark' },\n  { symbol: 'IODFE00', name: 'IO Fines Fe 58%', category: 'benchmark' },\n  { symbol: 'IODMR00', name: 'Mid Range Diff 60-63.5% Fe', category: 'differential' },\n  { symbol: 'IODFG00', name: 'Fe Diff per 1% (55-60% Fines)', category: 'differential' },\n  { symbol: 'IODFI00', name: 'Silica Diff per 1% (55-60% Fines)', category: 'differential' },\n  { symbol: 'IODFH00', name: 'Alumina Diff per 1% <5% (55-60% Fines)', category: 'differential' },\n  { symbol: 'IODAL00', name: 'Alumina Diff per 1% (1-2.5%)', category: 'differential' },\n  { symbol: 'IODAM00', name: 'Alumina Diff per 1% (2.5-4%)', category: 'differential' },\n  { symbol: 'IODSK00', name: 'Silica Diff per 1% (3-4.5%)', category: 'differential' },\n  { symbol: 'IODSL00', name: 'Silica Diff per 1% (4.5-6.5%)', category: 'differential' },\n  { symbol: 'IODSM00', name: 'Silica Diff per 1% (6.5-9%)', category: 'differential' }\n];\nconst formattedPrices = priceConfig.map(config => { const priceData = pricesBySymbol[config.symbol]; if (!priceData) return null; return { symbol: config.symbol, name: config.name, category: config.category, price: priceData.price, change: priceData.chg, change_pct: priceData.chg_percent, date: priceData.assessed_date, unit: priceData.curr_uom || '$/DMT' }; }).filter(p => p !== null);\nconst benchmarks = formattedPrices.filter(p => p.category === 'benchmark');\nconst differentials = formattedPrices.filter(p => p.category === 'differential');\nconst pricesText = `\\n📊 PRECOS BENCHMARK:\\n${benchmarks.map(p => `• ${p.name}: US$ ${p.price} ${p.unit} ${p.change ? `(${p.change > 0 ? '+' : ''}${p.change})` : ''}`).join('\\n')}\\n\\n📈 DIFERENCIAIS DE QUALIDADE:\\n${differentials.map(p => `• ${p.name}: US$ ${p.price} ${p.unit}`).join('\\n')}\\n`;\nconst iodex = pricesBySymbol['IODBZ00'] || {};\nreturn [{ json: { ...initData, posts: posts, posts_count: posts.length, posts_formatted: postsFormatted, all_prices: formattedPrices, benchmarks: benchmarks, differentials: differentials, prices_text: pricesText, price_data: { iodex_62: iodex.price || 'N/A', change: iodex.chg || '0', change_pct: iodex.chg_percent || '0', date: iodex.assessed_date || initData.date_query }, market_context: marketContext, posts_ids: posts.map(p => p.id) } }];"
+        "jsCode": "const initData = $('INIT DATA').first().json;\nconst posts = $('BUSCAR POSTS DO DIA').all().map(item => item.json);\nconst allPrices = $('BUSCAR PRECOS PLATTS').all().map(item => item.json);\nconst perplexityResponse = $('PERPLEXITY MERCADO').first().json;\nconst marketContext = perplexityResponse.choices ? perplexityResponse.choices[0].message.content : 'Contexto de mercado nao disponivel';\n\n// Extrair dados Baltic (novo)\nconst balticItems = $('BUSCAR BALTIC INDICES').all();\nconst balticRaw = balticItems.length > 0 ? balticItems[0].json : null;\nconst baltic = balticRaw ? {\n  bdi: { value: balticRaw.bdi_value, change: balticRaw.bdi_change, direction: balticRaw.bdi_direction },\n  capesize: { value: balticRaw.capesize_value, change: balticRaw.capesize_change, direction: balticRaw.capesize_direction },\n  panamax: { value: balticRaw.panamax_value, change: balticRaw.panamax_change, direction: balticRaw.panamax_direction },\n  supramax: { value: balticRaw.supramax_value, change: balticRaw.supramax_change, direction: balticRaw.supramax_direction },\n  handysize: { value: balticRaw.handysize_value, change: balticRaw.handysize_change, direction: balticRaw.handysize_direction },\n  c5tc: { value: balticRaw.c5tc_value, change: balticRaw.c5tc_change },\n  c3: { value: balticRaw.c3_value, change: balticRaw.c3_change },\n  c5: { value: balticRaw.c5_value, change: balticRaw.c5_change },\n  report_date: balticRaw.report_date\n} : null;\n\nconst postsFormatted = posts.length > 0 ? posts.map((p, i) => `${i + 1}. ${p.title}\\n   Resumo: ${(p.meta_description || p.content || '').substring(0, 200)}...`).join('\\n\\n') : 'Nenhum post publicado hoje.';\nconst pricesBySymbol = {};\nallPrices.forEach(p => { if (!pricesBySymbol[p.symbol] || p.assessed_date > pricesBySymbol[p.symbol].assessed_date) { pricesBySymbol[p.symbol] = p; } });\n\n// ATUALIZADO 2026-01-06: Novos simbolos Platts\nconst priceConfig = [\n  // Benchmarks\n  { symbol: 'IODBZ00', name: 'IODEX CFR China 62% Fe', category: 'benchmark' },\n  { symbol: 'IOPRM00', name: 'IO Fines Fe 65%', category: 'benchmark' },\n  { symbol: 'IODFE00', name: 'IO Fines Fe 58%', category: 'benchmark' },\n  // Quality Differentials (novos simbolos)\n  { symbol: 'TSIAD00', name: 'Fe Diff per 1% (55-60% Fines)', category: 'differential' },\n  { symbol: 'TSIAI00', name: 'Silica Diff per 1% (55-60% Fines)', category: 'differential' },\n  { symbol: 'IOADF10', name: 'Alumina Diff per 1% (1-2.5%)', category: 'differential' },\n  { symbol: 'IOALE00', name: 'Alumina Diff per 1% (2.5-4%)', category: 'differential' },\n  { symbol: 'IOPPS10', name: 'Silica Diff per 1% (4.5-6.5%)', category: 'differential' },\n  { symbol: 'IOPPS20', name: 'Silica Diff per 1% (6.5-9%)', category: 'differential' },\n  { symbol: 'IOPPT00', name: 'Phosphorus Diff per 0.01% (0.10-0.11%)', category: 'differential' },\n  // Brand (Brasil)\n  { symbol: 'IOBBA00', name: 'Brazilian Blend Fines CFR Qingdao', category: 'brand' }\n];\n\nconst formattedPrices = priceConfig.map(config => { const priceData = pricesBySymbol[config.symbol]; if (!priceData) return null; return { symbol: config.symbol, name: config.name, category: config.category, price: priceData.price, change: priceData.chg, change_pct: priceData.chg_percent, date: priceData.assessed_date, unit: priceData.curr_uom || '$/DMT' }; }).filter(p => p !== null);\nconst benchmarks = formattedPrices.filter(p => p.category === 'benchmark');\nconst differentials = formattedPrices.filter(p => p.category === 'differential');\nconst brands = formattedPrices.filter(p => p.category === 'brand');\nconst pricesText = `\\n📊 PRECOS BENCHMARK:\\n${benchmarks.map(p => `• ${p.name}: US$ ${p.price} ${p.unit} ${p.change ? `(${p.change > 0 ? '+' : ''}${p.change})` : ''}`).join('\\n')}\\n\\n📈 DIFERENCIAIS DE QUALIDADE:\\n${differentials.map(p => `• ${p.name}: US$ ${p.price} ${p.unit}`).join('\\n')}\\n${brands.length > 0 ? `\\n🇧🇷 BRASIL:\\n${brands.map(p => `• ${p.name}: US$ ${p.price} ${p.unit}`).join('\\n')}\\n` : ''}`;\nconst iodex = pricesBySymbol['IODBZ00'] || {};\nreturn [{ json: { ...initData, posts: posts, posts_count: posts.length, posts_formatted: postsFormatted, all_prices: formattedPrices, benchmarks: benchmarks, differentials: differentials, brands: brands, prices_text: pricesText, price_data: { iodex_62: iodex.price || 'N/A', change: iodex.chg || '0', change_pct: iodex.chg_percent || '0', date: iodex.assessed_date || initData.date_query }, market_context: marketContext, posts_ids: posts.map(p => p.id), baltic: baltic } }];"
       },
       "id": "merge-data",
       "name": "CONSOLIDAR DADOS",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        896,
+        912,
         304
       ]
     },
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Voce e o editor-chefe da newsletter Minerals Trading Daily, especializada em inteligencia de mercado de minerio de ferro para profissionais do setor no Brasil.\\n\\nCrie uma newsletter profissional e informativa com base nos dados abaixo.\\n\\n---\\n📅 DATA: {{ $json.date_display }}\\n\\n{{ $json.prices_text }}\\n\\n📰 POSTS PUBLICADOS HOJE:\\n{{ $json.posts_formatted }}\\n\\n🌐 CONTEXTO DE MERCADO (Perplexity):\\n{{ $json.market_context }}\\n\\n---\\n\\nGere a newsletter seguindo EXATAMENTE esta estrutura em formato JSON:\\n\\n- resumo_executivo (2-3 paragrafos)\\n- destaques (array de 3-5 strings)\\n- perspectivas (1-2 paragrafos)\\n- whatsapp_text (maximo 500 caracteres)\\n- subject_line (maximo 60 caracteres)",
+        "text": "=Você é o editor-chefe da newsletter **Minerals Trading Daily**, especializada em inteligência de mercado de minério de ferro para profissionais do setor no Brasil.\n\nCrie uma newsletter profissional e informativa com base nos dados abaixo.\n\n---\n\n## DADOS DE ENTRADA\n\n📅 **DATA:** {{ $json.date_display }}\n\n{{ $json.prices_text }}\n\n📰 **POSTS PUBLICADOS HOJE:**\n{{ $json.posts_formatted }}\n\n🌐 **CONTEXTO DE MERCADO (Perplexity):**\n{{ $json.market_context }}\n\n---\n\n## ESTRUTURA OBRIGATÓRIA DA NEWSLETTER\n\nGere a newsletter seguindo EXATAMENTE esta estrutura:\n\n### 1. RESUMO EXECUTIVO (200-300 palavras)\n- Parágrafo 1: Manchete do dia (o que movimentou o mercado)\n- Parágrafo 2: Dados de preços e variações\n- Parágrafo 3: Implicações para o mercado brasileiro\n\n### 2. DESTAQUES (3-5 bullets)\n- Cada destaque deve ser uma frase completa\n- Inclua dados numéricos quando disponíveis\n- Priorize informações actionáveis\n\n### 3. PERSPECTIVAS (100-150 palavras)\n- O que esperar nos próximos dias\n- Fatores a monitorar\n- Riscos e oportunidades\n\n### 4. WHATSAPP TEXT (max 500 chars)\n- Versão ultra-resumida para compartilhamento\n- Inclua 1-2 emojis estratégicos\n- Termine com link ou CTA\n\n### 5. SUBJECT LINE (max 60 chars)\n- Deve gerar curiosidade e urgência\n- Inclua dado numérico quando possível\n\n---\n\n## EXEMPLOS (FEW-SHOT)\n\n### EXEMPLO 1 - Dia de Queda:\n**Input:** IODEX $98.50 (-2.3%), China reduz importações\n**Output:**\n```json\n{\n  \"resumo_executivo\": \"O mercado de minério de ferro registrou pressão vendedora nesta terça-feira, com o índice IODEX recuando 2,3% para $98.50 por tonelada. A queda reflete a redução de 8% nas importações chinesas no acumulado do mês.\\n\\nOs preços spot caíram pelo terceiro dia consecutivo, pressionados pelo aumento dos estoques nos portos chineses, que atingiram 145 milhões de toneladas. O sentimento de mercado permanece cauteloso.\\n\\nPara as exportadoras brasileiras, o cenário exige atenção. A Vale (VALE3) pode sentir impacto nas margens, embora o real desvalorizado ofereça proteção parcial. CSN e Usiminas também monitoram a situação.\",\n  \"destaques\": [\n    \"IODEX fecha em $98.50/t, queda de 2,3% no dia\",\n    \"Estoques nos portos chineses atingem 145 Mt - maior nível em 6 meses\",\n    \"Importações chinesas recuam 8% no acumulado mensal\",\n    \"Real desvalorizado protege parcialmente margens das exportadoras BR\"\n  ],\n  \"perspectivas\": \"O mercado deve permanecer sob pressão no curto prazo enquanto os estoques chineses não mostrarem redução consistente. O nível de $95/t é visto como suporte técnico importante. Fatores a monitorar: dados de produção de aço chinês (sexta-feira) e leilões de minério da Vale (próxima semana).\",\n  \"whatsapp_text\": \"📉 Minério cai 2,3% para $98.50. Estoques na China em alta. Vale pode sentir impacto. Análise completa: mineralstradingdaily.com.br\",\n  \"subject_line\": \"Minério recua 2,3%: estoques chineses pressionam\"\n}\n```\n\n### EXEMPLO 2 - Dia de Alta:\n**Input:** IODEX $112.30 (+3.1%), China anuncia estímulos\n**Output:**\n```json\n{\n  \"resumo_executivo\": \"O minério de ferro disparou nesta quarta-feira após a China anunciar novo pacote de estímulos à infraestrutura. O IODEX saltou 3,1% para $112.30 por tonelada, maior nível em três semanas.\\n\\nO pacote chinês, estimado em US$ 140 bilhões, prevê investimentos em ferrovias de alta velocidade, portos logísticos e renovação urbana. A demanda por aço deve acelerar significativamente.\\n\\nPara o Brasil, é boa notícia. A Vale, maior exportadora global, viu suas ações subirem 4% no pré-market. Carajás pode bater novo recorde de embarques no 4º trimestre.\",\n  \"destaques\": [\n    \"IODEX salta 3,1% para $112.30/t - maior alta em 2 meses\",\n    \"China anuncia pacote de US$ 140 bi em infraestrutura\",\n    \"Vale (VALE3) sobe 4% no pré-market com otimismo\",\n    \"Embarques de Carajás podem bater recorde no 4T\",\n    \"Futuros de aço em Dalian sobem 2,8%\"\n  ],\n  \"perspectivas\": \"O sentimento de mercado virou positivo e deve sustentar os preços acima de $110 no curto prazo. O nível de $115 é a próxima resistência técnica. Traders devem monitorar detalhes do pacote chinês e reação dos produtores australianos.\",\n  \"whatsapp_text\": \"🚀 Minério dispara 3,1% para $112! China anuncia US$ 140 bi em obras. Vale sobe forte. Detalhes: mineralstradingdaily.com.br\",\n  \"subject_line\": \"Minério salta 3,1% com pacote chinês de US$140bi\"\n}\n```\n\n---\n\n## REGRAS DE ESTILO\n\n✅ **Tom:** Profissional, direto, informativo\n✅ **Números:** Sempre específicos (não arredonde)\n✅ **Moeda:** Use $ para dólar, R$ para real\n✅ **Unidades:** Mt (milhões de toneladas), t (toneladas)\n✅ **Empresas:** Mencione Vale, CSN, BHP, Rio Tinto quando relevante\n❌ **Nunca:** Especule sobre preços futuros com certeza\n❌ **Nunca:** Use linguagem informal ou girías\n\n---\n\n## OUTPUT JSON\n\nRetorne APENAS JSON válido neste formato:\n\n```json\n{\n  \"resumo_executivo\": \"texto de 200-300 palavras\",\n  \"destaques\": [\"destaque 1\", \"destaque 2\", \"destaque 3\"],\n  \"perspectivas\": \"texto de 100-150 palavras\",\n  \"whatsapp_text\": \"texto max 500 chars com emoji\",\n  \"subject_line\": \"texto max 60 chars\"\n}\n```",
         "options": {}
       },
       "id": "ai-agent-claude",
@@ -183,8 +190,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
       "position": [
-        1200,
-        528
+        1024,
+        576
       ],
       "credentials": {
         "anthropicApi": {
@@ -208,7 +215,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Gerar HTML da Newsletter com novo design\nconst data = $('PARSE AI RESPONSE').first().json;\nconst initData = $('INIT DATA').first().json;\n\n// Configuracoes de marca\nconst LOGO_URL = 'https://mineralstradingdaily.com.br/wp-content/uploads/2025/12/Logo-cor.png';\nconst COLORS = {\n  primary: '#4A4A4A',\n  secondary: '#8A8A8A',\n  accent: '#F7931E',\n  accentDark: '#E67E22',\n  background: '#f3f4f6',\n  white: '#ffffff',\n  success: '#22c55e',\n  danger: '#ef4444',\n  headerBg: '#2D2D2D'\n};\n\nconst subject = data.subject || data.newsletter_content?.subject_line || `Minerals Trading Daily - ${initData.date_display}`;\nconst content = data.newsletter_content || {};\nconst resumo = content.resumo_executivo || '';\nconst destaques = content.destaques || [];\nconst perspectivas = content.perspectivas || '';\n\n// Buscar precos ja formatados do PARSE AI RESPONSE\nconst benchmarks = data.benchmarks || [];\nconst differentials = data.differentials || [];\nconst priceData = data.price_data || {};\nconst iodexPrice = priceData.iodex_62 || '---';\n\n// Formatar linha de preco para tabela\nconst formatPriceRow = (item) => {\n  const change = parseFloat(item.change) || 0;\n  const changeColor = change > 0 ? COLORS.success : (change < 0 ? COLORS.danger : COLORS.secondary);\n  const changeSymbol = change > 0 ? '▲' : (change < 0 ? '▼' : '●');\n  const changeText = `${changeSymbol} ${Math.abs(change).toFixed(2)}`;\n  \n  return `<tr>\n    <td style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: ${COLORS.primary};\">${item.name}</td>\n    <td style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: ${COLORS.primary};\">US$ ${item.price}</td>\n    <td style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;\"><span style=\"color: ${changeColor}; font-size: 12px;\">${changeText}</span></td>\n  </tr>`;\n};\n\n// Gerar linhas de precos benchmark\nconst benchmarkRows = benchmarks.map(p => formatPriceRow(p)).join('');\n\n// Gerar linhas de diferenciais\nconst diffRows = differentials.map(p => `<tr>\n  <td style=\"padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: ${COLORS.secondary};\">${p.name}</td>\n  <td style=\"padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; color: ${COLORS.primary};\">US$ ${p.price}</td>\n</tr>`).join('');\n\n// Gerar lista de destaques\nconst destaquesHtml = destaques.map((d, i) => `\n  <tr>\n    <td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\">\n      <span style=\"color: ${COLORS.accent}; font-weight: bold;\">${i + 1}.</span> \n      <span style=\"color: ${COLORS.primary};\">${d}</span>\n    </td>\n  </tr>\n`).join('');\n\n// Template HTML completo\nconst html = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${subject}</title>\n</head>\n<body style=\"margin: 0; padding: 0; background-color: ${COLORS.background}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: ${COLORS.background}; padding: 20px 0;\">\n    <tr>\n      <td align=\"center\">\n        <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: ${COLORS.white}; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\">\n          \n          <!-- HEADER COM LOGO -->\n          <tr>\n            <td style=\"background-color: ${COLORS.headerBg}; padding: 25px 30px;\">\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                <tr>\n                  <td style=\"vertical-align: middle;\">\n                    <img src=\"${LOGO_URL}\" alt=\"Minerals Trading\" style=\"height: 45px; max-width: 180px;\" />\n                  </td>\n                  <td style=\"text-align: right; vertical-align: middle;\">\n                    <p style=\"color: ${COLORS.accent}; margin: 0; font-size: 14px; font-weight: 600;\">DAILY REPORT</p>\n                    <p style=\"color: #999999; margin: 5px 0 0 0; font-size: 12px;\">${initData.date_display}</p>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- PRECO DESTAQUE IODEX -->\n          <tr>\n            <td style=\"padding: 25px 30px; background: linear-gradient(135deg, ${COLORS.accent} 0%, ${COLORS.accentDark} 100%);\">\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                <tr>\n                  <td>\n                    <p style=\"margin: 0 0 5px 0; color: rgba(255,255,255,0.8); font-size: 12px; text-transform: uppercase; letter-spacing: 1px;\">IODEX 62% Fe CFR China</p>\n                    <p style=\"margin: 0; font-size: 36px; font-weight: 700; color: ${COLORS.white};\">US$ ${iodexPrice}</p>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- TABELA PRECOS BENCHMARK -->\n          <tr>\n            <td style=\"padding: 25px 30px;\">\n              <h3 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 16px; border-left: 4px solid ${COLORS.accent}; padding-left: 10px;\">BENCHMARK PRICES</h3>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #f8fafc; border-radius: 6px;\">\n                <thead>\n                  <tr style=\"background-color: #e2e8f0;\">\n                    <th style=\"padding: 10px 12px; text-align: left; font-size: 11px; color: ${COLORS.secondary}; text-transform: uppercase;\">Indicator</th>\n                    <th style=\"padding: 10px 12px; text-align: right; font-size: 11px; color: ${COLORS.secondary}; text-transform: uppercase;\">Price</th>\n                    <th style=\"padding: 10px 12px; text-align: right; font-size: 11px; color: ${COLORS.secondary}; text-transform: uppercase;\">Chg.</th>\n                  </tr>\n                </thead>\n                <tbody>\n                  ${benchmarkRows || '<tr><td colspan=\"3\" style=\"padding: 15px; text-align: center; color: #999;\">No benchmark prices available</td></tr>'}\n                </tbody>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- DIFERENCIAIS DE QUALIDADE -->\n          <tr>\n            <td style=\"padding: 0 30px 25px 30px;\">\n              <h3 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 16px; border-left: 4px solid ${COLORS.accentDark}; padding-left: 10px;\">QUALITY DIFFERENTIALS</h3>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #fffbeb; border-radius: 6px;\">\n                <tbody>\n                  ${diffRows || '<tr><td colspan=\"2\" style=\"padding: 15px; text-align: center; color: #999;\">No differentials available</td></tr>'}\n                </tbody>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- KEY HIGHLIGHTS (PRIMEIRO!) -->\n          <tr>\n            <td style=\"padding: 25px 30px; background-color: #f8fafc;\">\n              <h2 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 20px; border-left: 4px solid ${COLORS.success}; padding-left: 15px;\">KEY HIGHLIGHTS</h2>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size: 14px;\">\n                ${destaquesHtml || '<tr><td style=\"padding: 12px 0; color: #999;\">No highlights available</td></tr>'}\n              </table>\n            </td>\n          </tr>\n          \n          <!-- MARKET RECAP (DEPOIS DOS DESTAQUES) -->\n          <tr>\n            <td style=\"padding: 25px 30px;\">\n              <h2 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 20px; border-left: 4px solid ${COLORS.accent}; padding-left: 15px;\">MARKET RECAP</h2>\n              <p style=\"color: ${COLORS.primary}; line-height: 1.7; margin: 0; font-size: 15px;\">${resumo ? resumo.replace(/\\n/g, '<br><br>') : 'Market analysis not available.'}</p>\n            </td>\n          </tr>\n          \n          <!-- OUTLOOK -->\n          <tr>\n            <td style=\"padding: 25px 30px; background-color: #f8fafc;\">\n              <h2 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 20px; border-left: 4px solid ${COLORS.accentDark}; padding-left: 15px;\">OUTLOOK</h2>\n              <p style=\"color: ${COLORS.primary}; line-height: 1.7; margin: 0; font-size: 15px;\">${perspectivas ? perspectivas.replace(/\\n/g, '<br><br>') : 'Outlook not available.'}</p>\n            </td>\n          </tr>\n          \n          <!-- FOOTER -->\n          <tr>\n            <td style=\"background-color: ${COLORS.headerBg}; padding: 25px 30px; text-align: center;\">\n              <img src=\"${LOGO_URL}\" alt=\"Minerals Trading\" style=\"height: 35px; max-width: 150px; margin-bottom: 10px;\" />\n              <p style=\"color: #999999; margin: 0; font-size: 12px;\">mineralstradingdaily.com.br</p>\n              <p style=\"color: #666666; margin: 10px 0 0 0; font-size: 11px;\">Trading | Mining | Services</p>\n            </td>\n          </tr>\n          \n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...data,\n    content_html: html,\n    subject: subject,\n    date_display: initData.date_display,\n    session_id: initData.session_id\n  }\n}];"
+        "jsCode": "// Gerar HTML da Newsletter com novo design\nconst data = $('PARSE AI RESPONSE').first().json;\nconst initData = $('INIT DATA').first().json;\n\n// Dados Baltic do CONSOLIDAR DADOS (via PARSE AI RESPONSE que herda de CONSOLIDAR)\nconst baltic = data.baltic || null;\n\n// Configuracoes de marca\nconst LOGO_URL = 'https://mineralstradingdaily.com.br/wp-content/uploads/2025/12/Logo-cor.png';\nconst COLORS = {\n  primary: '#4A4A4A',\n  secondary: '#8A8A8A',\n  accent: '#F7931E',\n  accentDark: '#E67E22',\n  background: '#f3f4f6',\n  white: '#ffffff',\n  success: '#22c55e',\n  danger: '#ef4444',\n  headerBg: '#2D2D2D',\n  iodexText: '#1a1a1a',\n  balticBg: '#f0f9ff',\n  balticAccent: '#1e40af'\n};\n\n// Font stack com Consolas (melhor suporte em email clients)\nconst FONT_STACK = \"Consolas, 'Courier New', monospace, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif\";\n\nconst subject = data.subject || data.newsletter_content?.subject_line || `Minerals Trading Daily - ${initData.date_display}`;\nconst content = data.newsletter_content || {};\nconst resumo = content.resumo_executivo || '';\nconst destaques = content.destaques || [];\nconst perspectivas = content.perspectivas || '';\n\n// Buscar precos ja formatados do PARSE AI RESPONSE\nconst benchmarks = data.benchmarks || [];\nconst differentials = data.differentials || [];\nconst priceData = data.price_data || {};\nconst iodexPrice = priceData.iodex_62 || '---';\n\n// Formatar linha de preco para tabela\nconst formatPriceRow = (item) => {\n  const change = parseFloat(item.change) || 0;\n  const changeColor = change > 0 ? COLORS.success : (change < 0 ? COLORS.danger : COLORS.secondary);\n  const changeSymbol = change > 0 ? '▲' : (change < 0 ? '▼' : '●');\n  const changeText = `${changeSymbol} ${Math.abs(change).toFixed(2)}`;\n  \n  return `<tr>\n    <td style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: ${COLORS.primary};\">${item.name}</td>\n    <td style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: ${COLORS.primary};\">US$ ${item.price}</td>\n    <td style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;\"><span style=\"color: ${changeColor}; font-size: 12px;\">${changeText}</span></td>\n  </tr>`;\n};\n\n// Gerar linhas de precos benchmark\nconst benchmarkRows = benchmarks.map(p => formatPriceRow(p)).join('');\n\n// Gerar linhas de diferenciais\nconst diffRows = differentials.map(p => `<tr>\n  <td style=\"padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: ${COLORS.secondary};\">${p.name}</td>\n  <td style=\"padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; color: ${COLORS.primary};\">US$ ${p.price}</td>\n</tr>`).join('');\n\n// Gerar lista de destaques\nconst destaquesHtml = destaques.map((d, i) => `\n  <tr>\n    <td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\">\n      <span style=\"color: ${COLORS.accent}; font-weight: bold;\">${i + 1}.</span> \n      <span style=\"color: ${COLORS.primary};\">${d}</span>\n    </td>\n  </tr>\n`).join('');\n\n// Gerar secao Baltic Indices\nconst formatBalticRow = (name, data, showChange = true) => {\n  if (!data || data.value === undefined) return '';\n  const change = parseFloat(data.change) || 0;\n  const direction = data.direction || (change > 0 ? 'UP' : change < 0 ? 'DOWN' : 'FLAT');\n  const changeColor = direction === 'UP' ? COLORS.success : (direction === 'DOWN' ? COLORS.danger : COLORS.secondary);\n  const changeSymbol = direction === 'UP' ? '▲' : (direction === 'DOWN' ? '▼' : '●');\n  const changeCell = showChange ? `<td style=\"padding: 8px 12px; text-align: right; color: ${changeColor}; font-size: 12px; border-bottom: 1px solid #dbeafe;\">${changeSymbol} ${Math.abs(change)}</td>` : '';\n  return `<tr>\n    <td style=\"padding: 8px 12px; border-bottom: 1px solid #dbeafe; font-size: 13px; color: ${COLORS.secondary};\">${name}</td>\n    <td style=\"padding: 8px 12px; text-align: right; font-weight: 600; color: ${COLORS.primary}; border-bottom: 1px solid #dbeafe;\">${typeof data.value === 'number' ? data.value.toLocaleString() : data.value}</td>\n    ${changeCell}\n  </tr>`;\n};\n\nconst balticSection = baltic ? `\n  <!-- BALTIC FREIGHT INDICES -->\n  <tr>\n    <td style=\"padding: 25px 30px; background-color: ${COLORS.balticBg};\">\n      <h3 style=\"color: ${COLORS.balticAccent}; margin: 0 0 15px 0; font-size: 16px; border-left: 4px solid ${COLORS.balticAccent}; padding-left: 10px;\">📦 BALTIC FREIGHT INDICES</h3>\n      <p style=\"margin: 0 0 12px 0; font-size: 11px; color: ${COLORS.secondary};\">Report Date: ${baltic.report_date || 'N/A'}</p>\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-radius: 6px;\">\n        <tbody>\n          ${formatBalticRow('BDI (Baltic Dry Index)', baltic.bdi)}\n          ${formatBalticRow('Capesize (BCI)', baltic.capesize)}\n          ${formatBalticRow('Panamax (BPI)', baltic.panamax)}\n          ${formatBalticRow('Supramax (BSI)', baltic.supramax)}\n          ${formatBalticRow('Handysize (BHSI)', baltic.handysize)}\n        </tbody>\n      </table>\n      <h4 style=\"color: ${COLORS.balticAccent}; margin: 15px 0 10px 0; font-size: 14px;\">Key Routes ($/day)</h4>\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n        <tbody>\n          ${formatBalticRow('C5TC (Australia-China)', baltic.c5tc)}\n          ${formatBalticRow('C3 (Brazil-China)', baltic.c3)}\n          ${formatBalticRow('C5 (W.Australia-China)', baltic.c5)}\n        </tbody>\n      </table>\n    </td>\n  </tr>\n` : '';\n\n// Template HTML completo\nconst html = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${subject}</title>\n</head>\n<body style=\"margin: 0; padding: 0; background-color: ${COLORS.background}; font-family: ${FONT_STACK};\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: ${COLORS.background}; padding: 20px 0;\">\n    <tr>\n      <td align=\"center\">\n        <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: ${COLORS.white}; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\">\n          \n          <!-- HEADER COM LOGO -->\n          <tr>\n            <td style=\"background-color: ${COLORS.headerBg}; padding: 25px 30px;\">\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                <tr>\n                  <td style=\"vertical-align: middle;\">\n                    <img src=\"${LOGO_URL}\" alt=\"Minerals Trading\" style=\"height: 45px; max-width: 180px;\" />\n                  </td>\n                  <td style=\"text-align: right; vertical-align: middle;\">\n                    <p style=\"color: ${COLORS.accent}; margin: 0; font-size: 14px; font-weight: 600;\">DAILY REPORT</p>\n                    <p style=\"color: #999999; margin: 5px 0 0 0; font-size: 12px;\">${initData.date_display}</p>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- PRECO DESTAQUE IODEX (texto escuro para visibilidade) -->\n          <tr>\n            <td style=\"padding: 25px 30px; background-color: ${COLORS.accent}; background: linear-gradient(135deg, ${COLORS.accent} 0%, ${COLORS.accentDark} 100%);\">\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                <tr>\n                  <td>\n                    <p style=\"margin: 0 0 5px 0; color: ${COLORS.iodexText}; opacity: 0.8; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;\">IODEX 62% Fe CFR China</p>\n                    <p style=\"margin: 0; font-size: 36px; font-weight: 700; color: ${COLORS.iodexText};\">US$ ${iodexPrice}</p>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- TABELA PRECOS BENCHMARK -->\n          <tr>\n            <td style=\"padding: 25px 30px;\">\n              <h3 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 16px; border-left: 4px solid ${COLORS.accent}; padding-left: 10px;\">BENCHMARK PRICES</h3>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #f8fafc; border-radius: 6px;\">\n                <thead>\n                  <tr style=\"background-color: #e2e8f0;\">\n                    <th style=\"padding: 10px 12px; text-align: left; font-size: 11px; color: ${COLORS.secondary}; text-transform: uppercase;\">Indicator</th>\n                    <th style=\"padding: 10px 12px; text-align: right; font-size: 11px; color: ${COLORS.secondary}; text-transform: uppercase;\">Price</th>\n                    <th style=\"padding: 10px 12px; text-align: right; font-size: 11px; color: ${COLORS.secondary}; text-transform: uppercase;\">Chg.</th>\n                  </tr>\n                </thead>\n                <tbody>\n                  ${benchmarkRows || '<tr><td colspan=\"3\" style=\"padding: 15px; text-align: center; color: #999;\">No benchmark prices available</td></tr>'}\n                </tbody>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- DIFERENCIAIS DE QUALIDADE -->\n          <tr>\n            <td style=\"padding: 0 30px 25px 30px;\">\n              <h3 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 16px; border-left: 4px solid ${COLORS.accentDark}; padding-left: 10px;\">QUALITY DIFFERENTIALS</h3>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #fffbeb; border-radius: 6px;\">\n                <tbody>\n                  ${diffRows || '<tr><td colspan=\"2\" style=\"padding: 15px; text-align: center; color: #999;\">No differentials available</td></tr>'}\n                </tbody>\n              </table>\n            </td>\n          </tr>\n          \n          ${balticSection}\n          \n          <!-- KEY HIGHLIGHTS (PRIMEIRO!) -->\n          <tr>\n            <td style=\"padding: 25px 30px; background-color: #f8fafc;\">\n              <h2 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 20px; border-left: 4px solid ${COLORS.success}; padding-left: 15px;\">KEY HIGHLIGHTS</h2>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size: 14px;\">\n                ${destaquesHtml || '<tr><td style=\"padding: 12px 0; color: #999;\">No highlights available</td></tr>'}\n              </table>\n            </td>\n          </tr>\n          \n          <!-- MARKET RECAP (espaçamento corrigido) -->\n          <tr>\n            <td style=\"padding: 25px 30px;\">\n              <h2 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 20px; border-left: 4px solid ${COLORS.accent}; padding-left: 15px;\">MARKET RECAP</h2>\n              <p style=\"color: ${COLORS.primary}; line-height: 1.7; margin: 0; font-size: 15px;\">${resumo ? resumo.replace(/\\n/g, '<br>') : 'Market analysis not available.'}</p>\n            </td>\n          </tr>\n          \n          <!-- OUTLOOK -->\n          <tr>\n            <td style=\"padding: 25px 30px; background-color: #f8fafc;\">\n              <h2 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 20px; border-left: 4px solid ${COLORS.accentDark}; padding-left: 15px;\">OUTLOOK</h2>\n              <p style=\"color: ${COLORS.primary}; line-height: 1.7; margin: 0; font-size: 15px;\">${perspectivas ? perspectivas.replace(/\\n/g, '<br>') : 'Outlook not available.'}</p>\n            </td>\n          </tr>\n          \n          <!-- FOOTER -->\n          <tr>\n            <td style=\"background-color: ${COLORS.headerBg}; padding: 25px 30px; text-align: center;\">\n              <img src=\"${LOGO_URL}\" alt=\"Minerals Trading\" style=\"height: 35px; max-width: 150px; margin-bottom: 10px;\" />\n              <p style=\"color: #999999; margin: 0; font-size: 12px;\">mineralstradingdaily.com.br</p>\n              <p style=\"color: #666666; margin: 10px 0 0 0; font-size: 11px;\">Trading | Mining | Services</p>\n            </td>\n          </tr>\n          \n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...data,\n    content_html: html,\n    subject: subject,\n    date_display: initData.date_display,\n    session_id: initData.session_id\n  }\n}];"
       },
       "id": "generate-html",
       "name": "GERAR HTML",
@@ -263,7 +270,7 @@
     },
     {
       "parameters": {
-        "tableId": "newsletter_history",
+        "tableId": "05_news_history",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -301,7 +308,7 @@
     },
     {
       "parameters": {
-        "tableId": "newsletter_sessions",
+        "tableId": "05_news_sessions",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -380,13 +387,14 @@
     {
       "parameters": {
         "operation": "update",
-        "tableId": "newsletter_sessions",
-        "filters": {
-          "conditions": [
+        "tableId": "05_news_sessions",
+        "filterType": "string",
+        "filterString": "=session_id=eq.{{ $('CRIAR SESSAO').item.json.session_id }}",
+        "fieldsUi": {
+          "fieldValues": [
             {
-              "keyName": "session_id",
-              "condition": "eq",
-              "keyValue": "={{ $('PREPARAR PREVIEW').first().json.session_id }}"
+              "fieldId": "message_id",
+              "fieldValue": "={{ $json.result.message_id }}"
             }
           ]
         }
@@ -500,9 +508,38 @@
           "name": "OpenAi account 2"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "07_mkt_baltic_indices",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "report_date",
+              "condition": "gte",
+              "keyValue": "={{ $json.timestamp_start }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-baltic",
+      "name": "BUSCAR BALTIC INDICES",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        448,
+        688
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "04rdCJqTixOtwak5",
+          "name": "blogging"
+        }
+      }
     }
   ],
-  "pinData": {},
   "connections": {
     "TRIGGER 17H DIAS UTEIS": {
       "main": [
@@ -530,6 +567,11 @@
           },
           {
             "node": "PERPLEXITY MERCADO",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BUSCAR BALTIC INDICES",
             "type": "main",
             "index": 0
           }
@@ -733,20 +775,928 @@
           }
         ]
       ]
+    },
+    "BUSCAR BALTIC INDICES": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
     }
   },
-  "active": true,
   "settings": {
     "executionOrder": "v1",
     "errorWorkflow": "dxVlQYOyMQ4xxaHt",
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   },
-  "versionId": "3b420843-ed14-4bd7-bf8b-309c58179a83",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "3ddfe059a73966551adef0c3115547780518822b2c26e44ce57a0aa0c6ec2099"
+  "staticData": {
+    "node:TRIGGER 17H DIAS UTEIS": {
+      "recurrenceRules": []
+    }
   },
-  "id": "gMknz5KYcdJuu1Eg",
-  "tags": []
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "AI PROMPT TWITTER IMAGE": [
+      {
+        "json": {
+          "text": "\"A colossal mountain of iron ore shaped like a rising financial graph, glowing with deep iron red and industrial orange hues, set against a sprawling Asian port silhouette with subtle pagodas and bustling cargo ships navigating sea-lanes shaped like global trade routes, illuminated by warm golden hour volumetric light piercing through dust particles, evoking stability and cautious optimism in the iron ore market, cinematic hyper-realistic 8k Unreal Engine 5 render, low-angle heroic perspective --ar 16:9\""
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "GERAR IMAGEM NEWSLETTER": [
+      {
+        "json": {
+          "mimeType": "image/jpeg",
+          "fileType": "image",
+          "fileExtension": "png",
+          "fileName": "image.png",
+          "id": "filesystem-v2:workflows/gMknz5KYcdJuu1Eg/executions/5724/binary_data/d80cb2bb-fdb7-4472-bc11-4e5a4c024943",
+          "fileSize": "679 kB"
+        },
+        "binary": {
+          "newsletter_image": {
+            "mimeType": "image/jpeg",
+            "fileType": "image",
+            "fileExtension": "png",
+            "data": "filesystem-v2",
+            "fileName": "image.png",
+            "id": "filesystem-v2:workflows/gMknz5KYcdJuu1Eg/executions/5724/binary_data/d80cb2bb-fdb7-4472-bc11-4e5a4c024943",
+            "fileSize": "679 kB"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "versionId": "07fe309d-e75d-4393-8a17-3930339d7751",
+  "activeVersionId": "07fe309d-e75d-4393-8a17-3930339d7751",
+  "versionCounter": 128,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2025-12-18T19:29:52.907Z",
+      "createdAt": "2025-12-18T19:29:52.907Z",
+      "role": "workflow:owner",
+      "workflowId": "gMknz5KYcdJuu1Eg",
+      "projectId": "dRxgWShdHVW9l1V7",
+      "project": {
+        "updatedAt": "2025-09-19T18:48:21.630Z",
+        "createdAt": "2025-09-19T18:47:31.178Z",
+        "id": "dRxgWShdHVW9l1V7",
+        "name": "Antonio Carlos <antonio@mineralstrading.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-09-19T18:47:31.178Z",
+            "createdAt": "2025-09-19T18:47:31.178Z",
+            "userId": "79c1c8b9-5ee6-400a-bf13-68150eee5707",
+            "projectId": "dRxgWShdHVW9l1V7",
+            "user": {
+              "updatedAt": "2026-01-06T04:12:48.000Z",
+              "createdAt": "2025-09-19T18:47:30.858Z",
+              "id": "79c1c8b9-5ee6-400a-bf13-68150eee5707",
+              "email": "antonio@mineralstrading.com.br",
+              "firstName": "Antonio",
+              "lastName": "Carlos",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-09-19T18:48:29.298Z",
+                "personalization_survey_n8n_version": "1.111.0"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "zxxd71r9kk1fp6Ut",
+                "userActivatedAt": 1758535800044,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1760974180896
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-06",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-01-06T03:57:38.782Z",
+    "createdAt": "2026-01-06T03:57:38.782Z",
+    "versionId": "07fe309d-e75d-4393-8a17-3930339d7751",
+    "workflowId": "gMknz5KYcdJuu1Eg",
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 20 * * 1-5"
+              }
+            ]
+          }
+        },
+        "id": "trigger-schedule",
+        "name": "TRIGGER 17H DIAS UTEIS",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const tz = 'America/Sao_Paulo';\nconst now = new Date();\n\n// YYYY-MM-DD no fuso de SP\nconst fmtYMD = new Intl.DateTimeFormat('en-CA', {\n  timeZone: tz,\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n});\n\nconst todaySP = fmtYMD.format(now); // ex: 2026-01-06 (em SP)\nconst d = new Date(`${todaySP}T00:00:00.000Z`);\nd.setUTCDate(d.getUTCDate() ); // ontem (em SP) como \"plain date\"\nconst date_query = d.toISOString().slice(0, 10); // YYYY-MM-DD\n\nconst [Y, M, D] = date_query.split('-').map(Number);\n\n// offset do timezone (minutos) para um instant\nfunction getTzOffsetMinutes(date, timeZone) {\n  const dtf = new Intl.DateTimeFormat('en-US', {\n    timeZone,\n    year: 'numeric', month: '2-digit', day: '2-digit',\n    hour: '2-digit', minute: '2-digit', second: '2-digit',\n    hourCycle: 'h23',\n  });\n\n  const parts = dtf.formatToParts(date);\n  const v = {};\n  for (const p of parts) if (p.type !== 'literal') v[p.type] = p.value;\n\n  const asUTC = Date.UTC(+v.year, +v.month - 1, +v.day, +v.hour, +v.minute, +v.second);\n  return (asUTC - date.getTime()) / 60000;\n}\n\n// converte \"data/hora no fuso\" -> Date UTC real\nfunction zonedToUtcDate(y, m, d, h, mi, s, ms, timeZone) {\n  const localAsUTC = Date.UTC(y, m - 1, d, h, mi, s, ms);\n  const offset = getTzOffsetMinutes(new Date(localAsUTC), timeZone);\n  return new Date(localAsUTC - offset * 60000);\n}\n\nconst startOfDay = zonedToUtcDate(Y, M, D, 0, 0, 0, 0, tz);\nconst endOfDay   = zonedToUtcDate(Y, M, D, 23, 59, 59, 999, tz);\n\n// referência no meio do dia só pra evitar “virar” o dia ao formatar\nconst displayRef = zonedToUtcDate(Y, M, D, 12, 0, 0, 0, tz);\n\nconst brDate = displayRef.toLocaleDateString('pt-BR', {\n  timeZone: tz,\n  weekday: 'long',\n  day: '2-digit',\n  month: 'long',\n  year: 'numeric',\n});\n\nconst formattedDate = brDate.charAt(0).toUpperCase() + brDate.slice(1);\nconst sessionId = `newsletter_${Date.now()}`;\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    date_display: formattedDate,\n    date_query,\n    timestamp_start: startOfDay.toISOString(),\n    timestamp_end: endOfDay.toISOString(),\n    edition_subject: `📊 Minerals Trading Daily - ${formattedDate}`,\n  }\n}];\n"
+        },
+        "id": "init-date",
+        "name": "INIT DATA",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          208,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "getAll",
+          "tableId": "02_cnt_posts",
+          "limit": 10,
+          "matchType": "allFilters",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "created_at",
+                "condition": "gt",
+                "keyValue": "={{ $json.timestamp_start }}"
+              },
+              {
+                "keyName": "created_at",
+                "condition": "lt",
+                "keyValue": "={{ $json.timestamp_end }}"
+              }
+            ]
+          }
+        },
+        "id": "fetch-posts",
+        "name": "BUSCAR POSTS DO DIA",
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          448,
+          112
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "04rdCJqTixOtwak5",
+            "name": "blogging"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "getAll",
+          "tableId": "07_mkt_iron_ore_prices",
+          "filterType": "string",
+          "filterString": "symbol=in.(IODBZ00,IOPRM00,IODFE00,TSIAD00,TSIAI00,IOADF10,IOALE00,IOPPS10,IOPPS20,IOPPT00,IOBBA00)&order=assessed_date.desc&limit=50"
+        },
+        "id": "fetch-prices",
+        "name": "BUSCAR PRECOS PLATTS",
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          448,
+          304
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "04rdCJqTixOtwak5",
+            "name": "blogging"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": "sonar-pro",
+          "messages": {
+            "message": [
+              {
+                "content": "Voce e um analista especializado em mercado de minerio de ferro e commodities. Forneca informacoes precisas, atuais e relevantes sobre o mercado global de minerio de ferro.",
+                "role": "system"
+              },
+              {
+                "content": "Quais sao as principais noticias e desenvolvimentos do mercado de minerio de ferro nas ultimas 24 horas?"
+              }
+            ]
+          },
+          "options": {
+            "searchRecency": "day"
+          },
+          "requestOptions": {}
+        },
+        "id": "perplexity-research",
+        "name": "PERPLEXITY MERCADO",
+        "type": "n8n-nodes-base.perplexity",
+        "typeVersion": 1,
+        "position": [
+          448,
+          496
+        ],
+        "credentials": {
+          "perplexityApi": {
+            "id": "5ORcQ8DiAwHBwAC3",
+            "name": "Perplexity account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "numberInputs": 4
+        },
+        "id": "merge-3-inputs",
+        "name": "Merge",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          720,
+          272
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const initData = $('INIT DATA').first().json;\nconst posts = $('BUSCAR POSTS DO DIA').all().map(item => item.json);\nconst allPrices = $('BUSCAR PRECOS PLATTS').all().map(item => item.json);\nconst perplexityResponse = $('PERPLEXITY MERCADO').first().json;\nconst marketContext = perplexityResponse.choices ? perplexityResponse.choices[0].message.content : 'Contexto de mercado nao disponivel';\n\n// Extrair dados Baltic (novo)\nconst balticItems = $('BUSCAR BALTIC INDICES').all();\nconst balticRaw = balticItems.length > 0 ? balticItems[0].json : null;\nconst baltic = balticRaw ? {\n  bdi: { value: balticRaw.bdi_value, change: balticRaw.bdi_change, direction: balticRaw.bdi_direction },\n  capesize: { value: balticRaw.capesize_value, change: balticRaw.capesize_change, direction: balticRaw.capesize_direction },\n  panamax: { value: balticRaw.panamax_value, change: balticRaw.panamax_change, direction: balticRaw.panamax_direction },\n  supramax: { value: balticRaw.supramax_value, change: balticRaw.supramax_change, direction: balticRaw.supramax_direction },\n  handysize: { value: balticRaw.handysize_value, change: balticRaw.handysize_change, direction: balticRaw.handysize_direction },\n  c5tc: { value: balticRaw.c5tc_value, change: balticRaw.c5tc_change },\n  c3: { value: balticRaw.c3_value, change: balticRaw.c3_change },\n  c5: { value: balticRaw.c5_value, change: balticRaw.c5_change },\n  report_date: balticRaw.report_date\n} : null;\n\nconst postsFormatted = posts.length > 0 ? posts.map((p, i) => `${i + 1}. ${p.title}\\n   Resumo: ${(p.meta_description || p.content || '').substring(0, 200)}...`).join('\\n\\n') : 'Nenhum post publicado hoje.';\nconst pricesBySymbol = {};\nallPrices.forEach(p => { if (!pricesBySymbol[p.symbol] || p.assessed_date > pricesBySymbol[p.symbol].assessed_date) { pricesBySymbol[p.symbol] = p; } });\n\n// ATUALIZADO 2026-01-06: Novos simbolos Platts\nconst priceConfig = [\n  // Benchmarks\n  { symbol: 'IODBZ00', name: 'IODEX CFR China 62% Fe', category: 'benchmark' },\n  { symbol: 'IOPRM00', name: 'IO Fines Fe 65%', category: 'benchmark' },\n  { symbol: 'IODFE00', name: 'IO Fines Fe 58%', category: 'benchmark' },\n  // Quality Differentials (novos simbolos)\n  { symbol: 'TSIAD00', name: 'Fe Diff per 1% (55-60% Fines)', category: 'differential' },\n  { symbol: 'TSIAI00', name: 'Silica Diff per 1% (55-60% Fines)', category: 'differential' },\n  { symbol: 'IOADF10', name: 'Alumina Diff per 1% (1-2.5%)', category: 'differential' },\n  { symbol: 'IOALE00', name: 'Alumina Diff per 1% (2.5-4%)', category: 'differential' },\n  { symbol: 'IOPPS10', name: 'Silica Diff per 1% (4.5-6.5%)', category: 'differential' },\n  { symbol: 'IOPPS20', name: 'Silica Diff per 1% (6.5-9%)', category: 'differential' },\n  { symbol: 'IOPPT00', name: 'Phosphorus Diff per 0.01% (0.10-0.11%)', category: 'differential' },\n  // Brand (Brasil)\n  { symbol: 'IOBBA00', name: 'Brazilian Blend Fines CFR Qingdao', category: 'brand' }\n];\n\nconst formattedPrices = priceConfig.map(config => { const priceData = pricesBySymbol[config.symbol]; if (!priceData) return null; return { symbol: config.symbol, name: config.name, category: config.category, price: priceData.price, change: priceData.chg, change_pct: priceData.chg_percent, date: priceData.assessed_date, unit: priceData.curr_uom || '$/DMT' }; }).filter(p => p !== null);\nconst benchmarks = formattedPrices.filter(p => p.category === 'benchmark');\nconst differentials = formattedPrices.filter(p => p.category === 'differential');\nconst brands = formattedPrices.filter(p => p.category === 'brand');\nconst pricesText = `\\n📊 PRECOS BENCHMARK:\\n${benchmarks.map(p => `• ${p.name}: US$ ${p.price} ${p.unit} ${p.change ? `(${p.change > 0 ? '+' : ''}${p.change})` : ''}`).join('\\n')}\\n\\n📈 DIFERENCIAIS DE QUALIDADE:\\n${differentials.map(p => `• ${p.name}: US$ ${p.price} ${p.unit}`).join('\\n')}\\n${brands.length > 0 ? `\\n🇧🇷 BRASIL:\\n${brands.map(p => `• ${p.name}: US$ ${p.price} ${p.unit}`).join('\\n')}\\n` : ''}`;\nconst iodex = pricesBySymbol['IODBZ00'] || {};\nreturn [{ json: { ...initData, posts: posts, posts_count: posts.length, posts_formatted: postsFormatted, all_prices: formattedPrices, benchmarks: benchmarks, differentials: differentials, brands: brands, prices_text: pricesText, price_data: { iodex_62: iodex.price || 'N/A', change: iodex.chg || '0', change_pct: iodex.chg_percent || '0', date: iodex.assessed_date || initData.date_query }, market_context: marketContext, posts_ids: posts.map(p => p.id), baltic: baltic } }];"
+        },
+        "id": "merge-data",
+        "name": "CONSOLIDAR DADOS",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          912,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Você é o editor-chefe da newsletter **Minerals Trading Daily**, especializada em inteligência de mercado de minério de ferro para profissionais do setor no Brasil.\n\nCrie uma newsletter profissional e informativa com base nos dados abaixo.\n\n---\n\n## DADOS DE ENTRADA\n\n📅 **DATA:** {{ $json.date_display }}\n\n{{ $json.prices_text }}\n\n📰 **POSTS PUBLICADOS HOJE:**\n{{ $json.posts_formatted }}\n\n🌐 **CONTEXTO DE MERCADO (Perplexity):**\n{{ $json.market_context }}\n\n---\n\n## ESTRUTURA OBRIGATÓRIA DA NEWSLETTER\n\nGere a newsletter seguindo EXATAMENTE esta estrutura:\n\n### 1. RESUMO EXECUTIVO (200-300 palavras)\n- Parágrafo 1: Manchete do dia (o que movimentou o mercado)\n- Parágrafo 2: Dados de preços e variações\n- Parágrafo 3: Implicações para o mercado brasileiro\n\n### 2. DESTAQUES (3-5 bullets)\n- Cada destaque deve ser uma frase completa\n- Inclua dados numéricos quando disponíveis\n- Priorize informações actionáveis\n\n### 3. PERSPECTIVAS (100-150 palavras)\n- O que esperar nos próximos dias\n- Fatores a monitorar\n- Riscos e oportunidades\n\n### 4. WHATSAPP TEXT (max 500 chars)\n- Versão ultra-resumida para compartilhamento\n- Inclua 1-2 emojis estratégicos\n- Termine com link ou CTA\n\n### 5. SUBJECT LINE (max 60 chars)\n- Deve gerar curiosidade e urgência\n- Inclua dado numérico quando possível\n\n---\n\n## EXEMPLOS (FEW-SHOT)\n\n### EXEMPLO 1 - Dia de Queda:\n**Input:** IODEX $98.50 (-2.3%), China reduz importações\n**Output:**\n```json\n{\n  \"resumo_executivo\": \"O mercado de minério de ferro registrou pressão vendedora nesta terça-feira, com o índice IODEX recuando 2,3% para $98.50 por tonelada. A queda reflete a redução de 8% nas importações chinesas no acumulado do mês.\\n\\nOs preços spot caíram pelo terceiro dia consecutivo, pressionados pelo aumento dos estoques nos portos chineses, que atingiram 145 milhões de toneladas. O sentimento de mercado permanece cauteloso.\\n\\nPara as exportadoras brasileiras, o cenário exige atenção. A Vale (VALE3) pode sentir impacto nas margens, embora o real desvalorizado ofereça proteção parcial. CSN e Usiminas também monitoram a situação.\",\n  \"destaques\": [\n    \"IODEX fecha em $98.50/t, queda de 2,3% no dia\",\n    \"Estoques nos portos chineses atingem 145 Mt - maior nível em 6 meses\",\n    \"Importações chinesas recuam 8% no acumulado mensal\",\n    \"Real desvalorizado protege parcialmente margens das exportadoras BR\"\n  ],\n  \"perspectivas\": \"O mercado deve permanecer sob pressão no curto prazo enquanto os estoques chineses não mostrarem redução consistente. O nível de $95/t é visto como suporte técnico importante. Fatores a monitorar: dados de produção de aço chinês (sexta-feira) e leilões de minério da Vale (próxima semana).\",\n  \"whatsapp_text\": \"📉 Minério cai 2,3% para $98.50. Estoques na China em alta. Vale pode sentir impacto. Análise completa: mineralstradingdaily.com.br\",\n  \"subject_line\": \"Minério recua 2,3%: estoques chineses pressionam\"\n}\n```\n\n### EXEMPLO 2 - Dia de Alta:\n**Input:** IODEX $112.30 (+3.1%), China anuncia estímulos\n**Output:**\n```json\n{\n  \"resumo_executivo\": \"O minério de ferro disparou nesta quarta-feira após a China anunciar novo pacote de estímulos à infraestrutura. O IODEX saltou 3,1% para $112.30 por tonelada, maior nível em três semanas.\\n\\nO pacote chinês, estimado em US$ 140 bilhões, prevê investimentos em ferrovias de alta velocidade, portos logísticos e renovação urbana. A demanda por aço deve acelerar significativamente.\\n\\nPara o Brasil, é boa notícia. A Vale, maior exportadora global, viu suas ações subirem 4% no pré-market. Carajás pode bater novo recorde de embarques no 4º trimestre.\",\n  \"destaques\": [\n    \"IODEX salta 3,1% para $112.30/t - maior alta em 2 meses\",\n    \"China anuncia pacote de US$ 140 bi em infraestrutura\",\n    \"Vale (VALE3) sobe 4% no pré-market com otimismo\",\n    \"Embarques de Carajás podem bater recorde no 4T\",\n    \"Futuros de aço em Dalian sobem 2,8%\"\n  ],\n  \"perspectivas\": \"O sentimento de mercado virou positivo e deve sustentar os preços acima de $110 no curto prazo. O nível de $115 é a próxima resistência técnica. Traders devem monitorar detalhes do pacote chinês e reação dos produtores australianos.\",\n  \"whatsapp_text\": \"🚀 Minério dispara 3,1% para $112! China anuncia US$ 140 bi em obras. Vale sobe forte. Detalhes: mineralstradingdaily.com.br\",\n  \"subject_line\": \"Minério salta 3,1% com pacote chinês de US$140bi\"\n}\n```\n\n---\n\n## REGRAS DE ESTILO\n\n✅ **Tom:** Profissional, direto, informativo\n✅ **Números:** Sempre específicos (não arredonde)\n✅ **Moeda:** Use $ para dólar, R$ para real\n✅ **Unidades:** Mt (milhões de toneladas), t (toneladas)\n✅ **Empresas:** Mencione Vale, CSN, BHP, Rio Tinto quando relevante\n❌ **Nunca:** Especule sobre preços futuros com certeza\n❌ **Nunca:** Use linguagem informal ou girías\n\n---\n\n## OUTPUT JSON\n\nRetorne APENAS JSON válido neste formato:\n\n```json\n{\n  \"resumo_executivo\": \"texto de 200-300 palavras\",\n  \"destaques\": [\"destaque 1\", \"destaque 2\", \"destaque 3\"],\n  \"perspectivas\": \"texto de 100-150 palavras\",\n  \"whatsapp_text\": \"texto max 500 chars com emoji\",\n  \"subject_line\": \"texto max 60 chars\"\n}\n```",
+          "options": {}
+        },
+        "id": "ai-agent-claude",
+        "name": "AI Agent",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3,
+        "position": [
+          1120,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "claude-sonnet-4-5-20250929",
+            "cachedResultName": "Claude Sonnet 4.5"
+          },
+          "options": {
+            "thinking": true
+          }
+        },
+        "id": "anthropic-model",
+        "name": "Anthropic Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          1024,
+          576
+        ],
+        "credentials": {
+          "anthropicApi": {
+            "id": "fjN5QtG5xAcoiOWE",
+            "name": "Anthropic account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const prevData = $('CONSOLIDAR DADOS').first().json;\nconst aiResponse = $input.first().json;\nlet content;\ntry {\n  let responseText = aiResponse.output || (aiResponse.message && aiResponse.message.content) || aiResponse.content || JSON.stringify(aiResponse);\n  if (typeof responseText === 'object') { responseText = JSON.stringify(responseText); }\n  responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  responseText = responseText.replace(/^\\n+/, '').trim();\n  if (responseText.startsWith('{') && responseText.includes('}')) {\n    const lastBrace = responseText.lastIndexOf('}');\n    responseText = responseText.substring(0, lastBrace + 1);\n    content = JSON.parse(responseText);\n  } else { throw new Error('Resposta nao e JSON valido'); }\n} catch (e) {\n  content = { resumo_executivo: 'Erro ao processar conteudo: ' + e.message, destaques: ['Verifique os dados de entrada'], perspectivas: 'Analise nao disponivel.', whatsapp_text: '📊 MTD Newsletter - Erro no processamento', subject_line: 'Minerals Trading Daily' };\n}\nconst imagePrompt = 'Professional financial newsletter header image for iron ore market report. Modern, clean design with subtle mining/commodity trading elements. Color palette: deep blue, silver, and touches of iron red. Abstract representation of global trade, shipping, and mining. Corporate and sophisticated style. No text in image.';\nreturn [{ json: { ...prevData, newsletter_content: content, image_prompt: imagePrompt, subject: content.subject_line || prevData.edition_subject, whatsapp_text: content.whatsapp_text || '📊 Minerals Trading Daily' } }];"
+        },
+        "id": "parse-ai-response",
+        "name": "PARSE AI RESPONSE",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1472,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Gerar HTML da Newsletter com novo design\nconst data = $('PARSE AI RESPONSE').first().json;\nconst initData = $('INIT DATA').first().json;\n\n// Dados Baltic do CONSOLIDAR DADOS (via PARSE AI RESPONSE que herda de CONSOLIDAR)\nconst baltic = data.baltic || null;\n\n// Configuracoes de marca\nconst LOGO_URL = 'https://mineralstradingdaily.com.br/wp-content/uploads/2025/12/Logo-cor.png';\nconst COLORS = {\n  primary: '#4A4A4A',\n  secondary: '#8A8A8A',\n  accent: '#F7931E',\n  accentDark: '#E67E22',\n  background: '#f3f4f6',\n  white: '#ffffff',\n  success: '#22c55e',\n  danger: '#ef4444',\n  headerBg: '#2D2D2D',\n  iodexText: '#1a1a1a',\n  balticBg: '#f0f9ff',\n  balticAccent: '#1e40af'\n};\n\n// Font stack com Consolas (melhor suporte em email clients)\nconst FONT_STACK = \"Consolas, 'Courier New', monospace, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif\";\n\nconst subject = data.subject || data.newsletter_content?.subject_line || `Minerals Trading Daily - ${initData.date_display}`;\nconst content = data.newsletter_content || {};\nconst resumo = content.resumo_executivo || '';\nconst destaques = content.destaques || [];\nconst perspectivas = content.perspectivas || '';\n\n// Buscar precos ja formatados do PARSE AI RESPONSE\nconst benchmarks = data.benchmarks || [];\nconst differentials = data.differentials || [];\nconst priceData = data.price_data || {};\nconst iodexPrice = priceData.iodex_62 || '---';\n\n// Formatar linha de preco para tabela\nconst formatPriceRow = (item) => {\n  const change = parseFloat(item.change) || 0;\n  const changeColor = change > 0 ? COLORS.success : (change < 0 ? COLORS.danger : COLORS.secondary);\n  const changeSymbol = change > 0 ? '▲' : (change < 0 ? '▼' : '●');\n  const changeText = `${changeSymbol} ${Math.abs(change).toFixed(2)}`;\n  \n  return `<tr>\n    <td style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: ${COLORS.primary};\">${item.name}</td>\n    <td style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: ${COLORS.primary};\">US$ ${item.price}</td>\n    <td style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;\"><span style=\"color: ${changeColor}; font-size: 12px;\">${changeText}</span></td>\n  </tr>`;\n};\n\n// Gerar linhas de precos benchmark\nconst benchmarkRows = benchmarks.map(p => formatPriceRow(p)).join('');\n\n// Gerar linhas de diferenciais\nconst diffRows = differentials.map(p => `<tr>\n  <td style=\"padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: ${COLORS.secondary};\">${p.name}</td>\n  <td style=\"padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; color: ${COLORS.primary};\">US$ ${p.price}</td>\n</tr>`).join('');\n\n// Gerar lista de destaques\nconst destaquesHtml = destaques.map((d, i) => `\n  <tr>\n    <td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\">\n      <span style=\"color: ${COLORS.accent}; font-weight: bold;\">${i + 1}.</span> \n      <span style=\"color: ${COLORS.primary};\">${d}</span>\n    </td>\n  </tr>\n`).join('');\n\n// Gerar secao Baltic Indices\nconst formatBalticRow = (name, data, showChange = true) => {\n  if (!data || data.value === undefined) return '';\n  const change = parseFloat(data.change) || 0;\n  const direction = data.direction || (change > 0 ? 'UP' : change < 0 ? 'DOWN' : 'FLAT');\n  const changeColor = direction === 'UP' ? COLORS.success : (direction === 'DOWN' ? COLORS.danger : COLORS.secondary);\n  const changeSymbol = direction === 'UP' ? '▲' : (direction === 'DOWN' ? '▼' : '●');\n  const changeCell = showChange ? `<td style=\"padding: 8px 12px; text-align: right; color: ${changeColor}; font-size: 12px; border-bottom: 1px solid #dbeafe;\">${changeSymbol} ${Math.abs(change)}</td>` : '';\n  return `<tr>\n    <td style=\"padding: 8px 12px; border-bottom: 1px solid #dbeafe; font-size: 13px; color: ${COLORS.secondary};\">${name}</td>\n    <td style=\"padding: 8px 12px; text-align: right; font-weight: 600; color: ${COLORS.primary}; border-bottom: 1px solid #dbeafe;\">${typeof data.value === 'number' ? data.value.toLocaleString() : data.value}</td>\n    ${changeCell}\n  </tr>`;\n};\n\nconst balticSection = baltic ? `\n  <!-- BALTIC FREIGHT INDICES -->\n  <tr>\n    <td style=\"padding: 25px 30px; background-color: ${COLORS.balticBg};\">\n      <h3 style=\"color: ${COLORS.balticAccent}; margin: 0 0 15px 0; font-size: 16px; border-left: 4px solid ${COLORS.balticAccent}; padding-left: 10px;\">📦 BALTIC FREIGHT INDICES</h3>\n      <p style=\"margin: 0 0 12px 0; font-size: 11px; color: ${COLORS.secondary};\">Report Date: ${baltic.report_date || 'N/A'}</p>\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-radius: 6px;\">\n        <tbody>\n          ${formatBalticRow('BDI (Baltic Dry Index)', baltic.bdi)}\n          ${formatBalticRow('Capesize (BCI)', baltic.capesize)}\n          ${formatBalticRow('Panamax (BPI)', baltic.panamax)}\n          ${formatBalticRow('Supramax (BSI)', baltic.supramax)}\n          ${formatBalticRow('Handysize (BHSI)', baltic.handysize)}\n        </tbody>\n      </table>\n      <h4 style=\"color: ${COLORS.balticAccent}; margin: 15px 0 10px 0; font-size: 14px;\">Key Routes ($/day)</h4>\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n        <tbody>\n          ${formatBalticRow('C5TC (Australia-China)', baltic.c5tc)}\n          ${formatBalticRow('C3 (Brazil-China)', baltic.c3)}\n          ${formatBalticRow('C5 (W.Australia-China)', baltic.c5)}\n        </tbody>\n      </table>\n    </td>\n  </tr>\n` : '';\n\n// Template HTML completo\nconst html = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${subject}</title>\n</head>\n<body style=\"margin: 0; padding: 0; background-color: ${COLORS.background}; font-family: ${FONT_STACK};\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: ${COLORS.background}; padding: 20px 0;\">\n    <tr>\n      <td align=\"center\">\n        <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: ${COLORS.white}; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\">\n          \n          <!-- HEADER COM LOGO -->\n          <tr>\n            <td style=\"background-color: ${COLORS.headerBg}; padding: 25px 30px;\">\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                <tr>\n                  <td style=\"vertical-align: middle;\">\n                    <img src=\"${LOGO_URL}\" alt=\"Minerals Trading\" style=\"height: 45px; max-width: 180px;\" />\n                  </td>\n                  <td style=\"text-align: right; vertical-align: middle;\">\n                    <p style=\"color: ${COLORS.accent}; margin: 0; font-size: 14px; font-weight: 600;\">DAILY REPORT</p>\n                    <p style=\"color: #999999; margin: 5px 0 0 0; font-size: 12px;\">${initData.date_display}</p>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- PRECO DESTAQUE IODEX (texto escuro para visibilidade) -->\n          <tr>\n            <td style=\"padding: 25px 30px; background-color: ${COLORS.accent}; background: linear-gradient(135deg, ${COLORS.accent} 0%, ${COLORS.accentDark} 100%);\">\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                <tr>\n                  <td>\n                    <p style=\"margin: 0 0 5px 0; color: ${COLORS.iodexText}; opacity: 0.8; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;\">IODEX 62% Fe CFR China</p>\n                    <p style=\"margin: 0; font-size: 36px; font-weight: 700; color: ${COLORS.iodexText};\">US$ ${iodexPrice}</p>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- TABELA PRECOS BENCHMARK -->\n          <tr>\n            <td style=\"padding: 25px 30px;\">\n              <h3 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 16px; border-left: 4px solid ${COLORS.accent}; padding-left: 10px;\">BENCHMARK PRICES</h3>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #f8fafc; border-radius: 6px;\">\n                <thead>\n                  <tr style=\"background-color: #e2e8f0;\">\n                    <th style=\"padding: 10px 12px; text-align: left; font-size: 11px; color: ${COLORS.secondary}; text-transform: uppercase;\">Indicator</th>\n                    <th style=\"padding: 10px 12px; text-align: right; font-size: 11px; color: ${COLORS.secondary}; text-transform: uppercase;\">Price</th>\n                    <th style=\"padding: 10px 12px; text-align: right; font-size: 11px; color: ${COLORS.secondary}; text-transform: uppercase;\">Chg.</th>\n                  </tr>\n                </thead>\n                <tbody>\n                  ${benchmarkRows || '<tr><td colspan=\"3\" style=\"padding: 15px; text-align: center; color: #999;\">No benchmark prices available</td></tr>'}\n                </tbody>\n              </table>\n            </td>\n          </tr>\n          \n          <!-- DIFERENCIAIS DE QUALIDADE -->\n          <tr>\n            <td style=\"padding: 0 30px 25px 30px;\">\n              <h3 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 16px; border-left: 4px solid ${COLORS.accentDark}; padding-left: 10px;\">QUALITY DIFFERENTIALS</h3>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #fffbeb; border-radius: 6px;\">\n                <tbody>\n                  ${diffRows || '<tr><td colspan=\"2\" style=\"padding: 15px; text-align: center; color: #999;\">No differentials available</td></tr>'}\n                </tbody>\n              </table>\n            </td>\n          </tr>\n          \n          ${balticSection}\n          \n          <!-- KEY HIGHLIGHTS (PRIMEIRO!) -->\n          <tr>\n            <td style=\"padding: 25px 30px; background-color: #f8fafc;\">\n              <h2 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 20px; border-left: 4px solid ${COLORS.success}; padding-left: 15px;\">KEY HIGHLIGHTS</h2>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size: 14px;\">\n                ${destaquesHtml || '<tr><td style=\"padding: 12px 0; color: #999;\">No highlights available</td></tr>'}\n              </table>\n            </td>\n          </tr>\n          \n          <!-- MARKET RECAP (espaçamento corrigido) -->\n          <tr>\n            <td style=\"padding: 25px 30px;\">\n              <h2 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 20px; border-left: 4px solid ${COLORS.accent}; padding-left: 15px;\">MARKET RECAP</h2>\n              <p style=\"color: ${COLORS.primary}; line-height: 1.7; margin: 0; font-size: 15px;\">${resumo ? resumo.replace(/\\n/g, '<br>') : 'Market analysis not available.'}</p>\n            </td>\n          </tr>\n          \n          <!-- OUTLOOK -->\n          <tr>\n            <td style=\"padding: 25px 30px; background-color: #f8fafc;\">\n              <h2 style=\"color: ${COLORS.primary}; margin: 0 0 15px 0; font-size: 20px; border-left: 4px solid ${COLORS.accentDark}; padding-left: 15px;\">OUTLOOK</h2>\n              <p style=\"color: ${COLORS.primary}; line-height: 1.7; margin: 0; font-size: 15px;\">${perspectivas ? perspectivas.replace(/\\n/g, '<br>') : 'Outlook not available.'}</p>\n            </td>\n          </tr>\n          \n          <!-- FOOTER -->\n          <tr>\n            <td style=\"background-color: ${COLORS.headerBg}; padding: 25px 30px; text-align: center;\">\n              <img src=\"${LOGO_URL}\" alt=\"Minerals Trading\" style=\"height: 35px; max-width: 150px; margin-bottom: 10px;\" />\n              <p style=\"color: #999999; margin: 0; font-size: 12px;\">mineralstradingdaily.com.br</p>\n              <p style=\"color: #666666; margin: 10px 0 0 0; font-size: 11px;\">Trading | Mining | Services</p>\n            </td>\n          </tr>\n          \n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...data,\n    content_html: html,\n    subject: subject,\n    date_display: initData.date_display,\n    session_id: initData.session_id\n  }\n}];"
+        },
+        "id": "generate-html",
+        "name": "GERAR HTML",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1696,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "image",
+          "modelId": {
+            "__rl": true,
+            "value": "models/gemini-3-pro-image-preview",
+            "mode": "list"
+          },
+          "prompt": "={{ $json.text }}",
+          "options": {
+            "binaryPropertyOutput": "newsletter_image"
+          }
+        },
+        "id": "generate-image",
+        "name": "GERAR IMAGEM NEWSLETTER",
+        "type": "@n8n/n8n-nodes-langchain.googleGemini",
+        "typeVersion": 1,
+        "position": [
+          2272,
+          304
+        ],
+        "credentials": {
+          "googlePalmApi": {
+            "id": "VStJZ2Am1t3kqbKB",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const htmlData = $('GERAR HTML').first().json;\nconst currentItem = $input.first();\nconst hasImage = currentItem.binary && currentItem.binary.twitter_image;\nconst binaryData = hasImage ? currentItem.binary : undefined;\nconst subject = htmlData.subject || htmlData.edition_subject || (htmlData.newsletter_content && htmlData.newsletter_content.subject_line) || `📊 Minerals Trading Daily - ${new Date().toLocaleDateString('pt-BR')}`;\nconsole.log('=== CONSOLIDAR FINAL ===');\nconsole.log('Subject:', subject);\nconsole.log('Has Image:', hasImage);\nconsole.log('HTML length:', (htmlData.content_html || '').length);\nreturn [{ json: { ...htmlData, subject: subject, has_image: hasImage, image_status: hasImage ? 'generated' : 'failed', image_mime_type: hasImage ? 'image/png' : null }, binary: binaryData }];"
+        },
+        "id": "consolidate-final",
+        "name": "CONSOLIDAR FINAL",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2496,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "tableId": "05_news_history",
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "subject",
+                "fieldValue": "={{ $json.subject }}"
+              },
+              {
+                "fieldId": "content_html",
+                "fieldValue": "={{ $json.content_html }}"
+              },
+              {
+                "fieldId": "content_text",
+                "fieldValue": "={{ $json.prices_text }}"
+              },
+              {
+                "fieldId": "summary"
+              }
+            ]
+          }
+        },
+        "id": "save-newsletter",
+        "name": "SALVAR NEWSLETTER",
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          2720,
+          304
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "04rdCJqTixOtwak5",
+            "name": "blogging"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "tableId": "05_news_sessions",
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "session_id",
+                "fieldValue": "={{ $('CONSOLIDAR FINAL').first().json.session_id }}"
+              },
+              {
+                "fieldId": "newsletter_id",
+                "fieldValue": "={{ $('SALVAR NEWSLETTER').first().json.id }}"
+              },
+              {
+                "fieldId": "chat_id",
+                "fieldValue": "8375309778"
+              },
+              {
+                "fieldId": "stage",
+                "fieldValue": "pending_content"
+              },
+              {
+                "fieldId": "expires_at",
+                "fieldValue": "={{ new Date(Date.now() + 24*60*60*1000).toISOString() }}"
+              },
+              {
+                "fieldId": "updated_at",
+                "fieldValue": "={{ $json.updated_at }}"
+              }
+            ]
+          }
+        },
+        "id": "create-session",
+        "name": "CRIAR SESSAO",
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          2944,
+          304
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "04rdCJqTixOtwak5",
+            "name": "blogging"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const data = $('CONSOLIDAR FINAL').first().json;\nconst newsletterId = $('SALVAR NEWSLETTER').first().json.id;\nconst sessionId = data.session_id;\nconst content = data.newsletter_content || {};\nconst benchmarks = data.benchmarks || [];\nconst differentials = data.differentials || [];\n\n// Formatar precos\nconst formatPrice = (p) => {\n  const change = parseFloat(p.change) || 0;\n  const emoji = change > 0 ? '🟢' : (change < 0 ? '🔴' : '⚪');\n  const sign = change > 0 ? '+' : '';\n  return `• ${p.name}: US$ ${p.price} ${emoji} ${sign}${change.toFixed(2)}`;\n};\n\nconst benchmarkText = benchmarks.length > 0 \n  ? benchmarks.map(formatPrice).join('\\n') \n  : 'Nenhum preco disponivel';\n\n// Resumo truncado\nconst resumo = content.resumo_executivo || '';\nconst resumoTruncado = resumo.length > 500 ? resumo.substring(0, 500) + '...' : resumo;\n\n// Destaques\nconst destaques = (content.destaques || []).slice(0, 5).map((d, i) => `${i + 1}. ${d}`).join('\\n');\n\n// Montar mensagem simples\nlet message = `📰 *NEWSLETTER PREVIEW*\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\nmessage += `📅 *Data:* ${data.date_display || 'N/A'}\\n`;\nmessage += `📧 *Assunto:* ${data.subject || 'Minerals Trading Daily'}\\n`;\nmessage += `📝 *Posts incluidos:* ${data.posts_count || 0}\\n\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n`;\nmessage += `💰 *PRECOS BENCHMARK:*\\n\\n${benchmarkText}\\n\\n`;\nmessage += `📈 *Diferenciais:* ${differentials.length} indicadores\\n\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n`;\nmessage += `📝 *RESUMO:*\\n\\n${resumoTruncado}\\n\\n`;\n\nif (destaques) {\n  message += `━━━━━━━━━━━━━━━━━━━━━\\n`;\n  message += `📌 *DESTAQUES:*\\n\\n${destaques}\\n\\n`;\n}\n\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n`;\nmessage += `📱 *VERSAO WHATSAPP:*\\n\\n${data.whatsapp_text || '📊 Minerals Trading Daily'}\\n\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━\\n`;\nmessage += `🖼 *Imagem:* ${data.has_image ? '✅ Gerada' : '❌ Falhou'}\\n`;\n\n// Botoes simplificados\nconst buttons = {\n  inline_keyboard: [\n    [\n      { text: '✅ Aprovar e Enviar Email', callback_data: `nl_approve_${sessionId}` }\n    ],\n    [\n      { text: '🖼 Ver Imagem', callback_data: `nl_view_image_${sessionId}` },\n      { text: '🔄 Nova Imagem', callback_data: `nl_regen_image_${sessionId}` }\n    ],\n    [\n      { text: '❌ Cancelar', callback_data: `nl_cancel_${sessionId}` }\n    ]\n  ]\n};\n\nreturn [{\n  json: {\n    chat_id: '8375309778',\n    text: message,\n    parse_mode: 'Markdown',\n    reply_markup: JSON.stringify(buttons),\n    session_id: sessionId,\n    newsletter_id: newsletterId,\n    has_image: data.has_image || false\n  }\n}];"
+        },
+        "id": "prepare-preview",
+        "name": "PREPARAR PREVIEW",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3168,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.telegram.org/bot8587388609:AAFuL2RSX5-qBtHUFJ5fd-63X7JK2FXluNw/sendMessage",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ chat_id: $json.chat_id, text: $json.text, parse_mode: $json.parse_mode, reply_markup: JSON.parse($json.reply_markup) }) }}",
+          "options": {}
+        },
+        "id": "send-preview",
+        "name": "ENVIAR PREVIEW TELEGRAM",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3392,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "tableId": "05_news_sessions",
+          "filterType": "string",
+          "filterString": "=session_id=eq.{{ $('CRIAR SESSAO').item.json.session_id }}",
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "message_id",
+                "fieldValue": "={{ $json.result.message_id }}"
+              }
+            ]
+          }
+        },
+        "id": "update-message-id",
+        "name": "ATUALIZAR MESSAGE ID",
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          3616,
+          304
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "04rdCJqTixOtwak5",
+            "name": "blogging"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "status",
+                "name": "status",
+                "type": "string",
+                "value": "success"
+              },
+              {
+                "id": "session_id",
+                "name": "session_id",
+                "type": "string",
+                "value": "={{ $('PREPARAR PREVIEW').first().json.session_id }}"
+              },
+              {
+                "id": "newsletter_id",
+                "name": "newsletter_id",
+                "type": "string",
+                "value": "={{ $('PREPARAR PREVIEW').first().json.newsletter_id }}"
+              },
+              {
+                "id": "message_sent",
+                "name": "message_sent",
+                "type": "boolean",
+                "value": "={{ $('ENVIAR PREVIEW TELEGRAM').first().json.ok === true }}"
+              },
+              {
+                "id": "message_id",
+                "name": "message_id",
+                "type": "number",
+                "value": "={{ ($('ENVIAR PREVIEW TELEGRAM').first().json.result && $('ENVIAR PREVIEW TELEGRAM').first().json.result.message_id) ? $('ENVIAR PREVIEW TELEGRAM').first().json.result.message_id : 0 }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "final-log",
+        "name": "LOG FINAL",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          3840,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.newsletter_content.resumo_executivo }}",
+          "messages": {
+            "messageValues": [
+              {
+                "message": "You are a world-class AI Art Director specializing in financial news and commodities markets. Your task is to generate a deeply descriptive, high-end image prompt for an image generator (Flux/SDXL based) based on the provided news snippet.\n\nINPUT ANALYSIS:\nRead the news provided. Identify three factors:\n1. SENTIMENT: Bullish (prices up/optimism), Bearish (prices down/worry), or Neutral (operational updates).\n2. TOPIC: Market/Finance, Geopolitics/Trade, or Physical Mining/Logistics.\n3. LOCATION: Is a specific country mentioned (China, Brazil, Australia)?\n\nVISUAL STRATEGY (Choose one based on TOPIC):\n\nA) IF MARKET/FINANCE NEWS (Price hikes, inflation, futures):\n   - Concept: Use visual metaphors. A bull made of rough iron ore rocks charging forward; A mountain of iron ore shaped like an upward trending graph; Golden coins mixing with raw red earth.\n   - Atmosphere: If Bullish = Golden Hour, shiny, low-angle (heroic). If Bearish = Stormy, cold blue/grey lighting, isolated machinery.\n\nB) IF GEOPOLITICS/CHINA/MACRO (Stimulus, import quotas, trade deals):\n   - Concept: Massive scale trade. Cargo ships navigating through a sea that looks like a map.\n   - Geography Cues: If China is involved, include subtle silhouettes of pagodas in the industrial background, red atmospheric haze, or busy Asian port megastructures. If Brazil, lush tropical vegetation surrounding the red mine pits.\n   - Composition: Wide, epic shots showing the connection between nature and global trade.\n\nC) IF PHYSICAL MINING (Production reports, new mines, accidents):\n   - Concept: Raw power. Close-ups of textures.\n   - Action: Excavators, conveyor belts, explosions (controlled).\n   - Detail: Focus on the contrast between the metallic steel of machines and the deep red/rust color of the ore.\n\nMANDATORY ARTISTIC GUIDELINES:\n- STYLE: Cinematic, Hyper-realistic, Editorial, 8k resolution, Unreal Engine 5 render style.\n- NO HUMAN FACES. Use silhouettes of workers, gloved hands shaking, or helmets, but NEVER a recognizable face.\n- COLORS: Vivid and dramatic. Deep Iron Red, Industrial Orange, Steel Blue, Money Green (for profits).\n- LIGHTING: Volumetric lighting, dust particles, dramatic shadows.\n\nOUTPUT FORMAT:\nReturn ONLY the prompt string in English. No explanations. The prompt must be descriptive, vivid, and imply the story of the news without text.\n\nEXAMPLE STRUCTURE:\n\"[Subject/Metaphor] in a [Setting/Location], [Action/Details], [Lighting/Atmosphere], [Camera Angle/Style] --ar 16:9\""
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "id": "48541e2e-7200-48d6-9698-4cde0f46b333",
+        "name": "AI PROMPT TWITTER IMAGE",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.7,
+        "position": [
+          1920,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "gpt-4.1-mini",
+            "mode": "list"
+          },
+          "options": {
+            "maxTokens": 500
+          }
+        },
+        "id": "9ee6999d-6886-4a55-b726-78f54331fda1",
+        "name": "LM Twitter Image",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2,
+        "position": [
+          2000,
+          528
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "TlBHX33f0SZpyHLo",
+            "name": "OpenAi account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "getAll",
+          "tableId": "07_mkt_baltic_indices",
+          "limit": 1,
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "report_date",
+                "condition": "gte",
+                "keyValue": "={{ $json.timestamp_start }}"
+              }
+            ]
+          }
+        },
+        "id": "fetch-baltic",
+        "name": "BUSCAR BALTIC INDICES",
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          448,
+          688
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "04rdCJqTixOtwak5",
+            "name": "blogging"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "TRIGGER 17H DIAS UTEIS": {
+        "main": [
+          [
+            {
+              "node": "INIT DATA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "INIT DATA": {
+        "main": [
+          [
+            {
+              "node": "BUSCAR POSTS DO DIA",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "BUSCAR PRECOS PLATTS",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "PERPLEXITY MERCADO",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "BUSCAR BALTIC INDICES",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "BUSCAR POSTS DO DIA": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "BUSCAR PRECOS PLATTS": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "PERPLEXITY MERCADO": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 2
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "CONSOLIDAR DADOS",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CONSOLIDAR DADOS": {
+        "main": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "node": "PARSE AI RESPONSE",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Anthropic Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "PARSE AI RESPONSE": {
+        "main": [
+          [
+            {
+              "node": "GERAR HTML",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "GERAR HTML": {
+        "main": [
+          [
+            {
+              "node": "AI PROMPT TWITTER IMAGE",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "GERAR IMAGEM NEWSLETTER": {
+        "main": [
+          [
+            {
+              "node": "CONSOLIDAR FINAL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CONSOLIDAR FINAL": {
+        "main": [
+          [
+            {
+              "node": "SALVAR NEWSLETTER",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SALVAR NEWSLETTER": {
+        "main": [
+          [
+            {
+              "node": "CRIAR SESSAO",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CRIAR SESSAO": {
+        "main": [
+          [
+            {
+              "node": "PREPARAR PREVIEW",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "PREPARAR PREVIEW": {
+        "main": [
+          [
+            {
+              "node": "ENVIAR PREVIEW TELEGRAM",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ENVIAR PREVIEW TELEGRAM": {
+        "main": [
+          [
+            {
+              "node": "ATUALIZAR MESSAGE ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ATUALIZAR MESSAGE ID": {
+        "main": [
+          [
+            {
+              "node": "LOG FINAL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "LM Twitter Image": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI PROMPT TWITTER IMAGE",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI PROMPT TWITTER IMAGE": {
+        "main": [
+          [
+            {
+              "node": "GERAR IMAGEM NEWSLETTER",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "BUSCAR BALTIC INDICES": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 3
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Antonio Carlos",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-01-06T03:57:38.844Z",
+        "id": 395,
+        "workflowId": "gMknz5KYcdJuu1Eg",
+        "versionId": "07fe309d-e75d-4393-8a17-3930339d7751",
+        "event": "activated",
+        "userId": "79c1c8b9-5ee6-400a-bf13-68150eee5707"
+      }
+    ]
+  }
 }
