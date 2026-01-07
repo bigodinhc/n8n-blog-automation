@@ -2,7 +2,7 @@
 
 ---
 
-## TRABALHO EM ANDAMENTO (Atualizado 2026-01-05)
+## TRABALHO EM ANDAMENTO (Atualizado 2026-01-07)
 
 ### Contexto
 Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]_[descricao]`.
@@ -126,6 +126,25 @@ Fluxo SEO implementado. Workflows renomeados para nova convencao `WF[XXX]_[tipo]
 - [x] WF012: Query de erros e posts das ultimas 24h
 - [x] WF012: Metricas de saude do sistema
 
+**Sessao 2026-01-07 (Platts Scraper + Newsletter Improvements):**
+- [x] [WF] PRECOS PLATTS: Renomeados 16 nodes para refletir funcoes
+- [x] [WF] PRECOS PLATTS: Corrigido UPSERT - URL apontava para tabela errada
+- [x] [WF] PRECOS PLATTS: Migrado de HTTP Request para PostgreSQL node (mais confiavel)
+- [x] [WF] PRECOS PLATTS: SQL com INSERT...ON CONFLICT para upsert atomico
+- [x] WF008: Preview Telegram expandido com TODAS as secoes da newsletter:
+  - IODEX (preco principal com emoji de direcao)
+  - Benchmarks (Fe62, Fe65, Fe58)
+  - Quality Differentials (resumo + contagem)
+  - Baltic Indices (BDI, Capesize, rotas C3/C5)
+  - Market Recap (resumo executivo truncado)
+  - Key Highlights (lista numerada)
+  - Outlook (perspectivas)
+- [x] WF008a: Implementado envio para multiplos assinantes
+- [x] WF008a: Adicionado node BUSCAR SUBSCRIBERS (PostgreSQL → landing_page.subscribers)
+- [x] WF008a: SendGrid agora usa `$json.email` dinamico (loop automatico n8n)
+- [x] WF008a: Mensagem de confirmacao mostra total de assinantes enviados
+- [x] WF008a: Testado com 39 assinantes - funcionando
+
 ### PROXIMOS PASSOS (ROADMAP)
 
 **Fase 0 - Infraestrutura:**
@@ -192,10 +211,10 @@ n8n-blog-automation/
 ├── prompts/                    # Prompts de AI extraidos
 │   ├── archiver.md             # WF2 (7/10)
 │   ├── editor.md               # WF5 (9/10) - MODELO
-│   ├── twitter.md              # WF7 (7/10)
-│   ├── linkedin.md             # WF7 (2/10) - CRITICO
-│   ├── instagram.md            # WF7 (2/10) - CRITICO
-│   └── newsletter.md           # WF8 (3/10)
+│   ├── twitter.md              # WF7 (8/10)
+│   ├── linkedin.md             # WF7 (9/10)
+│   ├── instagram.md            # WF7 (9/10)
+│   └── newsletter.md           # WF8 (9/10)
 ├── scripts/
 │   ├── export_workflows.sh
 │   └── import_workflows.sh
@@ -236,10 +255,16 @@ n8n-blog-automation/
 
 ## Banco de Dados (Supabase)
 
-### Projeto
+### Projeto Principal (blogging)
 - **ID:** `pbhvhfahcvgmgjvuhwuk`
 - **Regiao:** us-east-2
-- **Credential ID:** `04rdCJqTixOtwak5` (nome: "blogging")
+- **Credential n8n:** `04rdCJqTixOtwak5` (nome: "blogging")
+
+### Projeto Landing Page (subscribers)
+- **ID:** `ykfyskemfqwaphxlcnub`
+- **Credential n8n:** `SUPABASE_LANDINGPAGE` (PostgreSQL)
+- **Tabela:** `subscribers` (39 assinantes)
+- **Uso:** WF008a busca emails para envio de newsletter
 
 ### Tabelas (Reorganizadas 2026-01-05)
 
@@ -407,7 +432,7 @@ O sistema eleva automaticamente a prioridade em certos casos:
 ## Notas Importantes
 
 1. **Consultar docs/BACKLOG.md** para tarefas pendentes e prioridades
-2. **Prompts criticos:** LinkedIn e Instagram precisam de melhoria urgente
+2. **Prompts:** Todos os prompts criticos foram melhorados (9/10)
 3. **Modelo de prompt:** Usar WF5 Editor como referencia
 4. **Validacao:** Warnings de typeVersion sao normais apos updates
 5. **Callbacks Telegram:** Limite de 64 bytes - usar formato curto
